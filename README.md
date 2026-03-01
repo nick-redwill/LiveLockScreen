@@ -35,6 +35,7 @@ A GNOME Shell extension that lets you set any video as your lock screen backgrou
 </p>
 
 ## TODO
+- [ ] Interactive changes on password prompt (blur/brightness change, video pause, etc) 
 - [ ] Improve performance for high-res videos
 - [ ] Publish to extensions.gnome.org
 - [ ] ~~Per-monitor video selection~~ — not planned, single pipeline is used for performance
