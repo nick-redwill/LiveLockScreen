@@ -28,7 +28,8 @@ A GNOME Shell extension that lets you set any video as your lock screen backgrou
 ## Screenshots
 
 <p align="center">
-  <img src="screenshots/main-window.png" alt="Extension Preferences" width="600">
+  <img src="screenshots/main-window1.png" alt="Extension Preferences" width="600">
+  <img src="screenshots/main-window2.png" alt="Extension Preferences" width="600">
   <br><br>
   <img src="screenshots/lockscreen-clock.png" alt="Lock Screen with Clock" width="600">
   <br><br>
