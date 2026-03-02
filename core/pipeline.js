@@ -1,5 +1,6 @@
 import Gst from 'gi://Gst';
 import GLib from 'gi://GLib';
+import GstController from 'gi://GstController';
 
 export default class Pipeline {
     constructor({ videoPath, volume, loop, framerate, skipFrame, dataCallback }) {
@@ -14,10 +15,17 @@ export default class Pipeline {
         this._bus = null;
 
         this._videoSink = null;
-        this._timeoutId = null; 
 
+        this._volumeElement = null;
+        this._volumeControl = null;
+        
         this._initialized = false;
         this._firstFrame = true;
+        
+        this._dataTimeoutId = null; 
+        this._playbackTimeoutId = null;
+
+        this._PLAYBACK_FADE_DUR = 400;
     }
 
     is_initialized() {
@@ -58,26 +66,57 @@ export default class Pipeline {
 
             if (this._volume > 0) {
                 const audioBin      = new Gst.Bin({ name: 'audio-bin' });
+                const audioQueue    = Gst.ElementFactory.make('queue', 'audio-queue');
                 const audioConvert  = Gst.ElementFactory.make('audioconvert',  'audioconvert');
                 const audioResample = Gst.ElementFactory.make('audioresample',  'audioresample');
-                const audioSink     = Gst.ElementFactory.make('autoaudiosink',  'audio-sink');
+                const audioSink =     Gst.ElementFactory.make('autoaudiosink', 'audio-sink');
+                const volumeElement = Gst.ElementFactory.make('volume', 'volume');
 
-                if (!audioConvert || !audioResample || !audioSink) {
+                if (!audioConvert || !audioResample || !audioSink || !audioQueue || !volumeElement) {
                     throw new Error('Failed to create audio elements');
                 }
+
+                audioQueue.set_property('max-size-buffers', 0); // unlimited
+                audioQueue.set_property('max-size-time', 5 * Gst.SECOND); // 2 second buffer
+                audioQueue.set_property('max-size-bytes', 0); // unlimited
 
                 audioSink.set_property('sync', true);
                 
                 audioBin.add(audioConvert);
                 audioBin.add(audioResample);
+                audioBin.add(audioQueue);
+                audioBin.add(volumeElement);
                 audioBin.add(audioSink);
+
                 audioConvert.link(audioResample);
-                audioResample.link(audioSink);
+                audioResample.link(audioQueue);
+                audioQueue.link(volumeElement);
+                volumeElement.link(audioSink);
+
+                const controlSource = GstController.InterpolationControlSource.new();
+                controlSource.set_property(
+                    'mode',
+                    GstController.InterpolationMode.LINEAR
+                );
+
+                // Bind it to the volume property
+                const binding = GstController.DirectControlBinding.new(
+                    volumeElement,
+                    'volume',
+                    controlSource
+                );
+
+                volumeElement.add_control_binding(binding);
+                volumeElement.set_property('volume', this._volume)
+
+                // Save for later
+                this._volumeElement = volumeElement;
+                this._volumeControl = controlSource;
 
                 const audioGhostPad = Gst.GhostPad.new('sink', audioConvert.get_static_pad('sink'));
                 audioBin.add_pad(audioGhostPad);
+
                 pipeline.set_property('audio-sink', audioBin);
-                pipeline.set_property('volume', this._volume);
             } else {
                 const fakeSink = Gst.ElementFactory.make('fakesink', 'audio-fake');
                 pipeline.set_property('audio-sink', fakeSink);
@@ -90,8 +129,8 @@ export default class Pipeline {
             this._initBusWatch();
 
             const interval = 1000 / this._framerate;
-            this._timeoutId = this._startFetchTimer(interval)
-            if (!this._timeoutId) {
+            this._dataTimeoutId = this._startFetchTimer(interval)
+            if (!this._dataTimeoutId) {
                 throw new Error('Failed to create the fetch timer')
             }
 
@@ -122,6 +161,38 @@ export default class Pipeline {
 
     _startFetchTimer(interval) {
         return GLib.timeout_add(GLib.PRIORITY_DEFAULT, interval, () => this._fetchData());
+    }
+
+    _easeVolume(target, durationMs = 300) {
+        if (!this._volumeControl || !this._volumeElement)
+            return;
+
+        const clock = this._pipeline.get_clock();
+        if (!clock) return;
+
+        const now = clock.get_time();
+        const base = this._pipeline.get_base_time();
+        let runningTime = now - base;
+
+        if (runningTime < 0 || runningTime === Gst.CLOCK_TIME_NONE) {
+            runningTime = 0;
+        }
+
+        const startVol = this._volumeElement.volume;
+
+        this._volumeControl.unset_all();
+
+        const startTime = runningTime;
+        const endTime = startTime + (durationMs * Gst.MSECOND);
+
+        const safeStart = Math.max(0.0, Math.min(1.0, startVol));
+        const safeTarget = Math.max(0.0, Math.min(1.0, target));
+
+        // HACK: 
+        // I have no idea why it requires me to divide the value by 10
+        // But that seems to fix the issue
+        this._volumeControl.set(startTime, safeStart / 10);
+        this._volumeControl.set(endTime, safeTarget / 10);
     }
 
     _fetchData() {
@@ -164,19 +235,41 @@ export default class Pipeline {
     }
 
     play() {
-        if (this._pipeline)
+        if (this._pipeline) {
+            this._clearPlaybackTimeout()
             this._pipeline.set_state(Gst.State.PLAYING);
+            this._easeVolume(this._volume, this._PLAYBACK_FADE_DUR);
+        }
     }
 
     pause() {
-        if (this._pipeline)
-            this._pipeline.set_state(Gst.State.PAUSED);
+        if (this._pipeline) {
+            this._clearPlaybackTimeout()
+            this._easeVolume(0, this._PLAYBACK_FADE_DUR);
+            this._playbackTimeoutId = GLib.timeout_add(
+                GLib.PRIORITY_DEFAULT, 
+                this._PLAYBACK_FADE_DUR + 50, 
+                () => {
+                this._pipeline.set_state(Gst.State.PAUSED);
+                this._playbackTimeoutId = null;
+                return GLib.SOURCE_REMOVE;
+            });
+        }
+    }
+
+    _clearPlaybackTimeout() {
+        if (this._playbackTimeoutId) {
+            GLib.source_remove(this._playbackTimeoutId);
+            this._playbackTimeoutId = null;
+        }
     }
 
     deinit() {
-        if (this._timeoutId) {
-            GLib.source_remove(this._timeoutId);
-            this._timeoutId = null;
+        this._clearPlaybackTimeout()
+
+        if (this._dataTimeoutId) {
+            GLib.source_remove(this._dataTimeoutId);
+            this._dataTimeoutId = null;
         }
         if (this._bus) {
             this._bus.remove_watch();

@@ -22,7 +22,8 @@ A GNOME Shell extension that lets you set any video as your lock screen backgrou
 - 🖥️ Multiple monitor support
 - 🌫️ Blur effect with adjustable radius and brightness
 - 🎞️ Configurable framerate (1-120 fps)
-- 🔊 Optional audio output with volume control
+- 🔊 Optional audio output with volume control and fade-in/out
+- 🔑 Interactive changes on password prompt (blur/brightness change, video pause, etc)
 
 ## Screenshots
 
@@ -35,14 +36,14 @@ A GNOME Shell extension that lets you set any video as your lock screen backgrou
 </p>
 
 ## TODO
-- [ ] Interactive changes on password prompt (blur/brightness change, video pause, etc) 
 - [ ] Improve performance for high-res videos
 - [ ] Publish to extensions.gnome.org
 - [ ] ~~Per-monitor video selection~~ — not planned, single pipeline is used for performance
 
 ## Known Issues
 - Possible audio and video desync after suspend/wake
-- Brief green frame at video start (enable "Skip first frame" in Debug settings to fix or switch to unsafe pipeline)
+- Brief green frame at video start (enable "Skip first frame" in Debug settings to fix)
+- Possible clicking/crackling sounds when pausing/playing video with audio
 - Performance issues and shell crashes with high-res videos (hardware dependent)
 
 ## Installation

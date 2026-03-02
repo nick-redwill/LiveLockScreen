@@ -10,6 +10,12 @@ export const Keys = {
 
     AUDIO_VOLUME: "background-audio-volume",
 
+    PROMPT_PAUSE: "prompt-pause-video",
+    PROMPT_CHANGE_BLUR: "prompt-change-blur",
+    PROMPT_BLUR_RADIUS: "prompt-blur-radius",
+    PROMPT_BLUR_BRIGHTNESS: "prompt-blur-brightness",
+    PROMPT_BLUR_ANIM_DURATION: "prompt-blur-anim-duration",
+
     DEBUG_SKIP_FIRST_FRAME: "debug-skip-frame",
     DEBUG_USE_UNSAFE_PIPELINE: "debug-use-unsafe-pipeline",
 };

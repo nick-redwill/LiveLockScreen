@@ -4,7 +4,7 @@ import Gtk from 'gi://Gtk';
 
 import {ExtensionPreferences} from 'resource:///org/gnome/Shell/Extensions/js/extensions/prefs.js';
 
-import { Keys, ScalingMode } from "./enums.js";
+import { Keys } from "./enums.js";
 
 
 export default class LiveLockscreenExtensionPrefs extends ExtensionPreferences {
@@ -15,8 +15,8 @@ export default class LiveLockscreenExtensionPrefs extends ExtensionPreferences {
         let page = new Adw.PreferencesPage();
 
         page.add(this._buildGeneralGroup(window))
-        page.add(this._buildPlaybackGroup(window))
-        page.add(this._buildEffectsGroup(window))
+        page.add(this._buildAppearanceGroup(window))
+        page.add(this._buildPromptGroup(window))
         page.add(this._buildDebugGroup(window))
 
         window.add(page);
@@ -31,6 +31,7 @@ export default class LiveLockscreenExtensionPrefs extends ExtensionPreferences {
 
         const scalingRow = new Adw.ComboRow({
             title: 'Scaling mode',
+            subtitle: 'How the video is scaled to fit the screen',
             model: new Gtk.StringList({
                 strings: ['Stretch', 'Fit', 'Cover']
             }),
@@ -51,6 +52,12 @@ export default class LiveLockscreenExtensionPrefs extends ExtensionPreferences {
                 value: window._settings.get_int(Keys.AUDIO_VOLUME),
             }),
         });
+        let volumeSuffix = new Gtk.Label({
+            label: '%',
+            valign: Gtk.Align.CENTER,
+            css_classes: ['dim-label'],
+        });
+        volumeRow.add_suffix(volumeSuffix);
         volumeRow.connect('notify::value', row => {
             window._settings.set_int(Keys.AUDIO_VOLUME, row.get_value());
         });
@@ -68,9 +75,9 @@ export default class LiveLockscreenExtensionPrefs extends ExtensionPreferences {
         return generalGroup;
     }
 
-    _buildPlaybackGroup(window) {
-        let playbackGroup = new Adw.PreferencesGroup({
-            title: 'Playback',
+    _buildAppearanceGroup(window) {
+        let appearanceGroup = new Adw.PreferencesGroup({
+            title: 'Appearance',
         });
 
         let fpsRow = new Adw.SpinRow({
@@ -85,7 +92,14 @@ export default class LiveLockscreenExtensionPrefs extends ExtensionPreferences {
         fpsRow.connect('notify::value', row => {
             window._settings.set_int(Keys.FRAMERATE, row.get_value());
         });
-        playbackGroup.add(fpsRow);
+        let fpsSuffix = new Gtk.Label({
+            label: 'fps',
+            valign: Gtk.Align.CENTER,
+            css_classes: ['dim-label'],
+        });
+        fpsRow.add_suffix(fpsSuffix);
+
+        appearanceGroup.add(fpsRow);
 
         let fadeInRow = new Adw.SpinRow({
             title: 'Fade in',
@@ -98,24 +112,16 @@ export default class LiveLockscreenExtensionPrefs extends ExtensionPreferences {
             }),
         });
         // Add "ms" suffix label
-        let suffix = new Gtk.Label({
+        let fadeSuffix = new Gtk.Label({
             label: 'ms',
             valign: Gtk.Align.CENTER,
             css_classes: ['dim-label'],
         });
-        fadeInRow.add_suffix(suffix);
+        fadeInRow.add_suffix(fadeSuffix);
         fadeInRow.connect('notify::value', row => {
             window._settings.set_int(Keys.FADE_IN_DURATION, row.get_value());
         });
-        playbackGroup.add(fadeInRow);
-
-        return playbackGroup;
-    }
-
-    _buildEffectsGroup(window) {
-        let effectsGroup = new Adw.PreferencesGroup({
-            title: 'Effects',
-        });
+        appearanceGroup.add(fadeInRow);
 
         let blurRadiusRow = new Adw.SpinRow({
             title: 'Blur radius',
@@ -126,7 +132,13 @@ export default class LiveLockscreenExtensionPrefs extends ExtensionPreferences {
                 value: window._settings.get_int(Keys.BLUR_RADIUS),
             }),
         });
-        effectsGroup.add(blurRadiusRow);
+        let radiusSuffix = new Gtk.Label({
+            label: 'px',
+            valign: Gtk.Align.CENTER,
+            css_classes: ['dim-label'],
+        });
+        blurRadiusRow.add_suffix(radiusSuffix);
+        appearanceGroup.add(blurRadiusRow);
 
         let blurBrightnessRow = new Adw.SpinRow({
             title: 'Blur brightness',
@@ -137,7 +149,13 @@ export default class LiveLockscreenExtensionPrefs extends ExtensionPreferences {
                 value: window._settings.get_double(Keys.BLUR_BRIGHTNESS) * 100,
             }),
         });
-        effectsGroup.add(blurBrightnessRow);
+        let brightnessSuffix = new Gtk.Label({
+            label: '%',
+            valign: Gtk.Align.CENTER,
+            css_classes: ['dim-label'],
+        });
+        blurBrightnessRow.add_suffix(brightnessSuffix);
+        appearanceGroup.add(blurBrightnessRow);
 
         const toggleBrightnessSpin = () => {
             blurBrightnessRow.set_sensitive(blurRadiusRow.get_value() !== 0);
@@ -153,23 +171,112 @@ export default class LiveLockscreenExtensionPrefs extends ExtensionPreferences {
             window._settings.set_double(Keys.BLUR_BRIGHTNESS, row.get_value() / 100);
         });
 
-        return effectsGroup;
+        return appearanceGroup;
+    }
+
+    _buildPromptGroup(window) {
+        let promptGroup = new Adw.PreferencesGroup({
+            title: 'Password Prompt',
+            description: 'Customize behavior when password prompt appears',
+        });
+
+        const pauseSwitch = new Adw.SwitchRow({
+            title: 'Pause video'
+        });
+        window._settings.bind(
+            Keys.PROMPT_PAUSE, pauseSwitch,
+            'active', Gio.SettingsBindFlags.DEFAULT
+        );
+        promptGroup.add(pauseSwitch);
+
+        const changeBlurSwitch = new Adw.SwitchRow({
+            title: 'Change blur'
+        });
+        window._settings.bind(
+            Keys.PROMPT_CHANGE_BLUR, changeBlurSwitch,
+            'active', Gio.SettingsBindFlags.DEFAULT
+        );
+        promptGroup.add(changeBlurSwitch);
+
+        const blurRadiusRow = new Adw.SpinRow({
+            title: 'Blur radius',
+            adjustment: new Gtk.Adjustment({
+                lower: 0,
+                upper: 100,
+                step_increment: 1,
+                value: window._settings.get_int(Keys.PROMPT_BLUR_RADIUS),
+            }),
+        });
+        let radiusSuffix = new Gtk.Label({
+            label: 'px',
+            valign: Gtk.Align.CENTER,
+            css_classes: ['dim-label'],
+        });
+        blurRadiusRow.add_suffix(radiusSuffix);
+
+        window._settings.bind(
+            Keys.PROMPT_BLUR_RADIUS, blurRadiusRow,
+            'value', Gio.SettingsBindFlags.DEFAULT
+        );
+        promptGroup.add(blurRadiusRow);
+
+        const blurBrightnessRow = new Adw.SpinRow({
+            title: 'Blur brightness',
+            adjustment: new Gtk.Adjustment({
+                lower: 0,
+                upper: 100,
+                step_increment: 1,
+                value: window._settings.get_double(Keys.PROMPT_BLUR_BRIGHTNESS) * 100,
+            }),
+        });
+        blurBrightnessRow.connect('notify::value', row => {
+            window._settings.set_double(Keys.PROMPT_BLUR_BRIGHTNESS, row.get_value() / 100);
+        });
+        let suffix = new Gtk.Label({
+            label: '%',
+            valign: Gtk.Align.CENTER,
+            css_classes: ['dim-label'],
+        });
+        blurBrightnessRow.add_suffix(suffix);
+        promptGroup.add(blurBrightnessRow);
+
+        const animDurationRow = new Adw.SpinRow({
+            title: 'Animation duration',
+            adjustment: new Gtk.Adjustment({
+                lower: 0,
+                upper: 600000,
+                step_increment: 100,
+                value: window._settings.get_int(Keys.PROMPT_BLUR_ANIM_DURATION),
+            }),
+        });
+        window._settings.bind(
+            Keys.PROMPT_BLUR_ANIM_DURATION, animDurationRow,
+            'value', Gio.SettingsBindFlags.DEFAULT
+        );
+        let animSuffix = new Gtk.Label({
+            label: 'ms',
+            valign: Gtk.Align.CENTER,
+            css_classes: ['dim-label'],
+        });
+        animDurationRow.add_suffix(animSuffix);
+        promptGroup.add(animDurationRow);
+
+        const toggleBlurRows = () => {
+            const enabled = changeBlurSwitch.active;
+            blurRadiusRow.set_sensitive(enabled);
+            blurBrightnessRow.set_sensitive(enabled);
+            animDurationRow.set_sensitive(enabled);
+        };
+        toggleBlurRows();
+        changeBlurSwitch.connect('notify::active', toggleBlurRows);
+
+        return promptGroup;
     }
 
     _buildDebugGroup(window) {
         let debugGroup = new Adw.PreferencesGroup({
             title: 'Debug',
         });
-
-        const unsafeSwitch = new Adw.SwitchRow({
-            title: 'Unsafe pipeline',
-            subtitle: "Enable this if you experience artifacts (may cause a shell crash)"
-        });
-        window._settings.bind(
-            Keys.DEBUG_USE_UNSAFE_PIPELINE, unsafeSwitch, 
-            'active', Gio.SettingsBindFlags.DEFAULT
-        );
-        debugGroup.add(unsafeSwitch);
 
         const skipFrameSwitch = new Adw.SwitchRow({
             title: 'Skip first frame',
@@ -180,14 +287,6 @@ export default class LiveLockscreenExtensionPrefs extends ExtensionPreferences {
             'active', Gio.SettingsBindFlags.DEFAULT
         );
         debugGroup.add(skipFrameSwitch);
-
-        // Skip first frame only relevant for safe pipeline (playbin)
-        const toggleSkipFrame = () => {
-            skipFrameSwitch.set_sensitive(!unsafeSwitch.active);
-        };
-        toggleSkipFrame();
-        unsafeSwitch.connect('notify::active', toggleSkipFrame);
-
         return debugGroup;
     }
 

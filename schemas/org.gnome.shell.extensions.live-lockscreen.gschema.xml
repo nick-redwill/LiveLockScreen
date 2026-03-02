@@ -38,15 +38,35 @@
             <default>500</default>
             <summary>Background fade-in animation duration</summary>
         </key>
+
+        <key name="prompt-pause-video" type="b">
+            <default>false</default>
+            <summary>Whether to pause the video on password prompt</summary>
+        </key>
+        <key name="prompt-change-blur" type="b">
+            <default>false</default>
+            <summary>Whether to change the blur value on password prompt</summary>
+        </key>
         
+        <key name="prompt-blur-radius" type="i">
+            <range min="0" max="100" />
+            <default>20</default>
+            <summary>Background video blur radius on password prompt</summary>
+        </key>
+        <key name="prompt-blur-brightness" type="d">
+            <range min="0" max="1" />
+            <default>0.65</default>
+            <summary>Background video brightness on password prompt</summary>
+        </key>
+        <key name="prompt-blur-anim-duration" type="i">
+            <range min="0" max="600000" />
+            <default>300</default>
+            <summary>Background video blur change animation duration</summary>
+        </key>
         <key name="debug-skip-frame" type="b">
             <default>false</default>
             <summary>Whether to skip the first frame of video or not</summary>
             <description>Sometimes the very first frame of the video might be completely green, so there is an option to skip it</description>
-        </key>
-        <key name="debug-use-unsafe-pipeline" type="b">
-            <default>false</default>
-            <summary>Whether to use the old unsafe pipeline in case you experience issues or artifacts. However it cause shell crashes</summary>
         </key>
     </schema>
 </schemalist>

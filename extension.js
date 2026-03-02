@@ -12,7 +12,6 @@ import GLib from 'gi://GLib';
 import GstPbutils from 'gi://GstPbutils';
 
 import Pipeline from './core/pipeline.js';
-import PipelineUnsafe from './core/pipeline_unsafe.js';
 
 import { Keys } from "./enums.js";
 import { setImageData } from './utils/set_image_data.js';
@@ -33,6 +32,8 @@ export default class LockscreenExtension extends Extension {
                 return;
             }
         }
+
+        this._promptShown = false;
 
         this._actors = [];
         this._images = [];
@@ -62,41 +63,47 @@ export default class LockscreenExtension extends Extension {
         // These settings are common for all monitors
         this._fadeInDuration = this._settings.get_int(Keys.FADE_IN_DURATION);
         this._scalingMode = this._settings.get_int(Keys.SCALING_MODE);
+        this._blurRadius = this._settings.get_int(Keys.BLUR_RADIUS);
+        this._blurBrightness = this._settings.get_double(Keys.BLUR_BRIGHTNESS);
+
+        this._volume = this._settings.get_int(Keys.AUDIO_VOLUME) / 100
+
+        this._promptSettings = {
+            [Keys.PROMPT_PAUSE]: 
+                this._settings.get_boolean(Keys.PROMPT_PAUSE),
+            [Keys.PROMPT_CHANGE_BLUR]: 
+                this._settings.get_boolean(Keys.PROMPT_CHANGE_BLUR),
+
+            [Keys.PROMPT_BLUR_RADIUS]: 
+                this._settings.get_int(Keys.PROMPT_BLUR_RADIUS),
+            [Keys.PROMPT_BLUR_ANIM_DURATION]: 
+                this._settings.get_int(Keys.PROMPT_BLUR_ANIM_DURATION),
+            [Keys.PROMPT_BLUR_BRIGHTNESS]: 
+                this._settings.get_double(Keys.PROMPT_BLUR_BRIGHTNESS),
+        }
 
         const loop = this._settings.get_boolean(Keys.LOOPED);
-        const volume = this._settings.get_int(Keys.AUDIO_VOLUME) / 100
-        const blurBrightness = this._settings.get_double(Keys.BLUR_BRIGHTNESS);
-        const blurRadius = this._settings.get_int(Keys.BLUR_RADIUS);
         const framerate = this._settings.get_int(Keys.FRAMERATE);
         const skipFrame = this._settings.get_boolean(Keys.DEBUG_SKIP_FIRST_FRAME)
-        const useUnsafePipeline = this._settings.get_boolean(Keys.DEBUG_USE_UNSAFE_PIPELINE)
 
-        if (useUnsafePipeline) {
-            this._pipeline = new PipelineUnsafe({
-                videoPath: videoPath,
-                volume: volume,
-                loop: loop,
-                framerate: framerate,
-                dataCallback: this._drawImages.bind(this)
-            })
-        } else {
-            this._pipeline = new Pipeline({
-                videoPath: videoPath,
-                volume: volume,
-                loop: loop,
-                framerate: framerate,
-                skipFrame: skipFrame,
-                dataCallback: this._drawImages.bind(this)
-            })
-        }
+        this._pipeline = new Pipeline({
+            videoPath: videoPath,
+            volume: this._volume,
+            loop: loop,
+            framerate: framerate,
+            skipFrame: skipFrame,
+            dataCallback: this._drawImages.bind(this)
+        })
         
-
         // Creating blur effect
         const themeContext = St.ThemeContext.get_for_stage(global.stage);
+        this._blurRadius *= themeContext.scale_factor
+        this._promptSettings[Keys.BLUR_RADIUS] *= themeContext.scale_factor
+
         this._blurEffect = {
             name: 'lockscreen-extension-blur',
-            radius: blurRadius * themeContext.scale_factor,
-            brightness: blurBrightness,
+            radius: this._blurRadius,
+            brightness: this._blurBrightness,
         };
 
         const backend = Clutter.get_default_backend();
@@ -114,6 +121,94 @@ export default class LockscreenExtension extends Extension {
         });
 
         Main.screenShield._dialog._updateBackgrounds();
+
+        // Monkey-patching showPrompt (password prompt)
+        this._injectionManager.overrideMethod(Main.screenShield._dialog, '_showPrompt',
+            (original) => {
+                const self = this;
+                return function(...args) {
+                    original.call(this, ...args);
+                    self._onPromptShow();
+                };
+            }
+        );
+
+        // Monkey-patching showClock (hide password prompt)
+        this._injectionManager.overrideMethod(Main.screenShield._dialog, '_showClock',
+            (original) => {
+                const self = this;
+                return function(...args) {
+                    original.call(this, ...args);
+                    self._onPromptHide();
+                };
+            }
+        );
+    }
+
+    _onPromptShow() {
+        if (this._promptShown) return;
+        this._promptShown = true;
+
+        this._actors.forEach(actor => {
+            if (this._promptSettings[Keys.PROMPT_CHANGE_BLUR]) {
+                let radius = this._promptSettings[Keys.PROMPT_BLUR_RADIUS];
+                let brightness = radius ? this._promptSettings[Keys.PROMPT_BLUR_BRIGHTNESS] : 1; 
+
+                actor.ease_property(
+                    '@effects.lockscreen-extension-blur.radius', 
+                    this._promptSettings[Keys.PROMPT_BLUR_RADIUS], 
+                    {
+                        duration: this._promptSettings[Keys.PROMPT_BLUR_ANIM_DURATION],
+                        mode: Clutter.AnimationMode.EASE_OUT_QUAD,
+                    }
+                );
+                actor.ease_property(
+                    '@effects.lockscreen-extension-blur.brightness', 
+                    brightness, 
+                    {
+                        duration: this._promptSettings[Keys.PROMPT_BLUR_ANIM_DURATION],
+                        mode: Clutter.AnimationMode.EASE_OUT_QUAD,
+                    }
+                );
+            }
+        })
+
+        if (this._promptSettings[Keys.PROMPT_PAUSE]) {
+            this._pipeline.pause()
+        }
+    }
+
+    _onPromptHide() {
+        if (!this._promptShown) return;
+        this._promptShown = false;
+
+        this._actors.forEach(actor => {
+            if (this._promptSettings[Keys.PROMPT_CHANGE_BLUR]) {
+                let radius = this._blurRadius;
+                let brightness = radius ? this._blurBrightness : 1; 
+
+                actor.ease_property(
+                    '@effects.lockscreen-extension-blur.radius', 
+                    this._blurRadius, 
+                    {
+                        duration: this._promptSettings[Keys.PROMPT_BLUR_ANIM_DURATION],
+                        mode: Clutter.AnimationMode.EASE_OUT_QUAD,
+                    }
+                );
+                actor.ease_property(
+                    '@effects.lockscreen-extension-blur.brightness', 
+                    brightness, 
+                    {
+                        duration: this._promptSettings[Keys.PROMPT_BLUR_ANIM_DURATION],
+                        mode: Clutter.AnimationMode.EASE_OUT_QUAD,
+                    }
+                );
+            }
+        })
+
+        if (this._promptSettings[Keys.PROMPT_PAUSE]) {
+            this._pipeline.play()
+        }
     }
 
     _handleMonitor(monitorIndex) {
@@ -128,8 +223,7 @@ export default class LockscreenExtension extends Extension {
         })
 
         let mainActor = container ? container : actor;
-        print(mainActor)
-        
+
         this._actors.push(mainActor);
         this._images.push(image);
         
