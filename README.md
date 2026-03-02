@@ -82,7 +82,7 @@ A GNOME Shell extension that lets you set any video as your lock screen backgrou
 
 ## Support 
 
-If you enjoy this extension, consider buying me a tea ☕ (I’m not really a coffee person :D)
+If you enjoy this extension, consider buying me a tea 🍵 (I’m not really a coffee person :D)
 
 <p align="center">
   <a href="https://www.buymeacoffee.com/andromedamb">
