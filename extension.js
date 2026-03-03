@@ -272,7 +272,7 @@ export default class LockscreenExtension extends Extension {
                 image,
                 this._coglContext,
                 data,
-                Cogl.PixelFormat.RGBA_8888,
+                Cogl.PixelFormat.BGRA_8888,
                 width,
                 height,
                 width * 4
@@ -293,7 +293,7 @@ export default class LockscreenExtension extends Extension {
         }
         
         if (this._pipeline) {
-            this._pipeline.deinit();
+            this._pipeline.destroy();
             this._pipeline = null;
         }
 

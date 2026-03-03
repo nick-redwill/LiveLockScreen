@@ -25,7 +25,7 @@ export default class Pipeline {
         this._dataTimeoutId = null; 
         this._playbackTimeoutId = null;
 
-        this._PLAYBACK_FADE_DUR = 400;
+        this._PLAYBACK_FADE_DUR = 300;
     }
 
     is_initialized() {
@@ -45,7 +45,7 @@ export default class Pipeline {
                 throw new Error('Failed to create video elements');
             }
 
-            videoSink.set_property('caps', Gst.Caps.from_string('video/x-raw,format=RGBA'));
+            videoSink.set_property('caps', Gst.Caps.from_string('video/x-raw,format=BGRA'));
             videoSink.set_property('max-buffers', 1);
             videoSink.set_property('drop', true);
             videoSink.set_property('sync', true);
@@ -139,7 +139,7 @@ export default class Pipeline {
         }
         catch(e) {
             console.error('Pipeline init failed: ', e.message);
-            this.deinit();
+            this.destroy();
             return false;
         }
     }
@@ -160,7 +160,7 @@ export default class Pipeline {
     }
 
     _startFetchTimer(interval) {
-        return GLib.timeout_add(GLib.PRIORITY_DEFAULT, interval, () => this._fetchData());
+        return GLib.timeout_add(GLib.PRIORITY_DEFAULT_IDLE, interval, () => this._fetchData());
     }
 
     _easeVolume(target, durationMs = 300) {
@@ -218,18 +218,20 @@ export default class Pipeline {
         let [success, mapInfo] = buffer.map(Gst.MapFlags.READ);
         if (!success) return GLib.SOURCE_CONTINUE;
 
-        this._dataCallback(
-            mapInfo.data, width, height
-        )
+        // Using non-blocking call
+        GLib.idle_add(GLib.PRIORITY_DEFAULT_IDLE, () => {
+            this._dataCallback(mapInfo.data, width, height);
+            buffer.unmap(mapInfo);
+            
+            // Explicitly null everything to help GC
+            mapInfo = null;
+            buffer = null;
+            caps = null;
+            structure = null;
+            sample = null;
 
-        buffer.unmap(mapInfo);
-
-        // Explicitly null everything to help GC
-        mapInfo = null;
-        buffer = null;
-        caps = null;
-        structure = null;
-        sample = null;
+            return GLib.SOURCE_REMOVE; 
+        });
 
         return GLib.SOURCE_CONTINUE;
     }
@@ -259,16 +261,16 @@ export default class Pipeline {
 
     _clearPlaybackTimeout() {
         if (this._playbackTimeoutId) {
-            GLib.source_remove(this._playbackTimeoutId);
+            GLib.Source.remove(this._playbackTimeoutId);
             this._playbackTimeoutId = null;
         }
     }
 
-    deinit() {
+    destroy() {
         this._clearPlaybackTimeout()
 
         if (this._dataTimeoutId) {
-            GLib.source_remove(this._dataTimeoutId);
+            GLib.Source.remove(this._dataTimeoutId);
             this._dataTimeoutId = null;
         }
         if (this._bus) {
