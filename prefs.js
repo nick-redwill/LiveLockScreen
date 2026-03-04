@@ -323,6 +323,15 @@ export default class LiveLockscreenExtensionPrefs extends ExtensionPreferences {
 
         let dialog = new Gtk.FileDialog({ title: 'Select Video File' });
         dialog.set_filters(filters);
+
+        const videoPath = window._settings.get_string(Keys.VIDEO_PATH);
+        if (videoPath) {
+            const file = Gio.File.new_for_path(videoPath);
+            const parentFolder = file.get_parent();
+            if (parentFolder)
+                dialog.set_initial_folder(parentFolder);
+        }
+
         dialog.open(window, null, (d, result) => {
             try {
                 let file = d.open_finish(result);
