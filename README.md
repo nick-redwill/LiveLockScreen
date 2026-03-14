@@ -41,11 +41,6 @@ A GNOME Shell extension that lets you set any video as your lock screen backgrou
   <img src="screenshots/lockscreen-prompt.png" alt="Lock Screen with Password Prompt" width="600">
 </p>
 
-## TODO
-
-- [ ] Improve performance for high-res videos
-- [ ] ~~Per-monitor video selection~~ — not planned, single pipeline is used for performance
-
 ## Known Issues
 
 - Possible audio and video desync after suspend/wake
@@ -85,7 +80,7 @@ A GNOME Shell extension that lets you set any video as your lock screen backgrou
 If you enjoy this extension, consider buying me a tea 🍵 (I'm not really a coffee person :D)
 
 <p align="center">
-  <a href="https://www.buymeacoffee.com/nick-redwill">
+  <a href="https://www.buymeacoffee.com/nick_redwill">
     <img src="https://github.com/user-attachments/assets/3b58a7fc-e605-4742-94e9-0bf3144c5021" width="200"/>
   </a>
 </p>
