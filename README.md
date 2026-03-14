@@ -1,13 +1,18 @@
 <p align="center">
+  <img src="https://img.shields.io/github/stars/nick-redwill/LiveLockScreen">
+  <img src="https://img.shields.io/github/license/nick-redwill/LiveLockScreen">
+  <img src="https://img.shields.io/badge/GNOME%20Shell-47--50-blue">
+  <img src="https://img.shields.io/badge/status-legacy-red">
+</p>
+<p align="center">
   <img src="icon.png" width="128" height="128" alt="Live Lock Screen icon">
 </p>
-
 
 # Live Lock Screen
 
 A GNOME Shell extension that lets you set any video as your lock screen background.
 
-> ⚠️ Only tested on GNOME 47-49 so far. Should work on GNOME 45+ but not guaranteed. Try at your own risk.
+> ⚠️ This is the **legacy** branch. For the latest version with more features and better stability, switch to the `main` branch.
 
 > 💡 If you experience issues, check the **Debug** section in preferences for workarounds.
 
@@ -21,7 +26,7 @@ A GNOME Shell extension that lets you set any video as your lock screen backgrou
 - 🌌 Configurable fade-in animation
 - 🖥️ Multiple monitor support
 - 🌫️ Blur effect with adjustable radius and brightness
-- 🎞️ Configurable framerate (1-120 fps)
+- 🎞️ Configurable framerate (1–120 FPS)
 - 🔊 Optional audio output with volume control and fade-in/out
 - 🔑 Interactive changes on password prompt (blur/brightness change, video pause, etc)
 
@@ -37,17 +42,24 @@ A GNOME Shell extension that lets you set any video as your lock screen backgrou
 </p>
 
 ## TODO
+
 - [ ] Improve performance for high-res videos
-- [ ] Publish to extensions.gnome.org
 - [ ] ~~Per-monitor video selection~~ — not planned, single pipeline is used for performance
 
 ## Known Issues
+
 - Possible audio and video desync after suspend/wake
 - Brief green frame at video start (enable "Skip first frame" in Debug settings to fix)
 - Possible clicking/crackling sounds when pausing/playing video with audio
 - Performance issues and shell crashes with high-res videos (hardware dependent)
 
 ## Installation
+
+### Install from GNOME Extensions (recommended)
+
+  <a href="https://extensions.gnome.org/extension/9419/live-lock-screen/">
+    <img src="https://github.com/user-attachments/assets/d15de748-11b8-4a85-ad34-ec7786547b3c" width="250" alt="Install from GNOME Extensions">
+  </a>
 
 ### Manual
 
@@ -68,28 +80,15 @@ A GNOME Shell extension that lets you set any video as your lock screen backgrou
 
 4. Open the extension preferences and select your video file.
 
-## Requirements
+## Support
 
-- GNOME Shell 47-49 (other versions untested)
-- GStreamer with good/bad plugins:
-  ```bash
-  # Fedora
-  sudo dnf install gstreamer1-plugins-good gstreamer1-plugins-bad-free gstreamer1-plugins-ugly
-  
-  # Ubuntu/Debian
-  sudo apt install gstreamer1.0-plugins-good gstreamer1.0-plugins-bad gstreamer1.0-plugins-ugly
-  ```
-
-## Support 
-
-If you enjoy this extension, consider buying me a tea 🍵 (I’m not really a coffee person :D)
+If you enjoy this extension, consider buying me a tea 🍵 (I'm not really a coffee person :D)
 
 <p align="center">
-  <a href="https://www.buymeacoffee.com/andromedamb">
+  <a href="https://www.buymeacoffee.com/nick-redwill">
     <img src="https://github.com/user-attachments/assets/3b58a7fc-e605-4742-94e9-0bf3144c5021" width="200"/>
   </a>
 </p>
-
 
 ## License
 
