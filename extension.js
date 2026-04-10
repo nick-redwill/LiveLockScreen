@@ -21,6 +21,7 @@ export default class LockscreenExtension extends Extension {
         this._resetLockState();
         this._lockActive = false;
         this._screenShieldId = 0;
+        this._lightboxInjectionManager = null;
 
         if (!isGtk4PaintableSinkAvailable()) {
             sendErrorNotification(
@@ -31,6 +32,21 @@ export default class LockscreenExtension extends Extension {
         }
 
         this._settings = this.getSettings();
+
+        // Suppress the GNOME screen shield lightbox fade.
+        //
+        // When the shield activates, GNOME fades a black lightbox to
+        // full opacity BEFORE `active-changed` fires. Any video we
+        // then inject into the dialog ends up hidden behind that
+        // opaque overlay, so the user sees a black screen until they
+        // click or move the mouse. Override `lightOn()` on both
+        // lightboxes to still fire their "shown" signal (so the
+        // screen shield state machine advances) but keep their actor
+        // opacity at 0, making the overlay invisible. A dedicated
+        // InjectionManager is used so these overrides persist across
+        // lock/unlock cycles and can be cleanly restored in disable().
+        this._lightboxInjectionManager = new InjectionManager();
+        this._suppressLightboxFade();
 
         // Defer the actual player setup until the screen shield
         // reports it is active. Hooking `Main.screenShield._dialog`
@@ -49,6 +65,29 @@ export default class LockscreenExtension extends Extension {
         // run setup immediately.
         if (Main.screenShield.active)
             this._onActiveChanged();
+    }
+
+    _suppressLightboxFade() {
+        const neuter = (lightbox) => {
+            if (!lightbox) return;
+            this._lightboxInjectionManager.overrideMethod(
+                lightbox, 'lightOn',
+                (original) => {
+                    return function (_fadeInTime) {
+                        // Call original with duration 0 so the
+                        // "shown" signal still fires synchronously
+                        // and the shield state machine advances,
+                        // then force opacity to 0 so the overlay
+                        // never becomes visible.
+                        original.call(this, 0);
+                        this.opacity = 0;
+                    };
+                }
+            );
+        };
+
+        neuter(Main.screenShield._shortLightbox);
+        neuter(Main.screenShield._longLightbox);
     }
 
     _resetLockState() {
@@ -470,6 +509,10 @@ export default class LockscreenExtension extends Extension {
             this._teardownForUnlock();
             this._lockActive = false;
         }
+
+        // Restore original lightbox behavior.
+        this._lightboxInjectionManager?.clear();
+        this._lightboxInjectionManager = null;
 
         this._settings = null;
     }
