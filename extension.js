@@ -6,6 +6,7 @@ import {Extension, InjectionManager} from 'resource:///org/gnome/shell/extension
 import St from 'gi://St';
 import Shell from 'gi://Shell';
 import Clutter from 'gi://Clutter';
+import GLib from 'gi://GLib';
 
 import { Keys } from './enums.js';
 import { PlayerProcess } from './core/player_process.js';
@@ -17,14 +18,9 @@ import { sendErrorNotification } from './utils/notifications.js';
 
 export default class LockscreenExtension extends Extension {
     enable() {
-        this._backgroundCreated = false;
-        this._wrapperActors = {}; // connector -> actor 
-        this._windowActors = {};  // connector -> actor
-        this._lockPositionSignals = [];
-
-        this._promptShown = false;
-        this._injectionManager = null;
-        this._player = null;
+        this._resetLockState();
+        this._lockActive = false;
+        this._screenShieldId = 0;
 
         if (!isGtk4PaintableSinkAvailable()) {
             sendErrorNotification(
@@ -36,10 +32,53 @@ export default class LockscreenExtension extends Extension {
 
         this._settings = this.getSettings();
 
+        // Defer the actual player setup until the screen shield
+        // reports it is active. Hooking `Main.screenShield._dialog`
+        // directly at enable() time is unreliable: the dialog object
+        // can be null (never locked yet), or become a dead reference
+        // if GNOME recreates it between enable() and the next lock
+        // cycle. Listening to `active-changed` guarantees we inject
+        // into the current, live dialog on every lock.
+        this._screenShieldId = Main.screenShield.connect(
+            'active-changed',
+            this._onActiveChanged.bind(this)
+        );
+
+        // If the shield is already active at enable() time (e.g. the
+        // user just toggled the extension on from the lock screen),
+        // run setup immediately.
+        if (Main.screenShield.active)
+            this._onActiveChanged();
+    }
+
+    _resetLockState() {
+        this._backgroundCreated = false;
+        this._wrapperActors = {}; // connector -> actor
+        this._windowActors = {};  // connector -> actor
+        this._lockPositionSignals = [];
+
+        this._promptShown = false;
+        this._injectionManager = null;
+        this._player = null;
+    }
+
+    _onActiveChanged() {
+        const active = Main.screenShield.active;
+
+        if (active && !this._lockActive) {
+            this._lockActive = true;
+            this._setupForLock();
+        } else if (!active && this._lockActive) {
+            this._lockActive = false;
+            this._teardownForUnlock();
+        }
+    }
+
+    _setupForLock() {
         const disableOnBatter = this._settings.get_boolean(Keys.DISABLE_ON_BATTERY);
         if (disableOnBatter && isOnBattery()) {
             console.warn('Skipping on battery');
-            return;            
+            return;
         }
 
         const videoPath = this._settings.get_string(Keys.VIDEO_PATH);
@@ -88,7 +127,7 @@ export default class LockscreenExtension extends Extension {
             framerate,
             colorAccurate: colorAccurate
         });
-        
+
         try {
             this._player.run();
         } catch (e) {
@@ -119,48 +158,63 @@ export default class LockscreenExtension extends Extension {
                 this._windowActors[connector] = win.get_compositor_private();
             }
 
-            this._injectCreateBackground();
-
-            this._injectionManager.overrideMethod(
-                Main.screenShield._dialog, '_showPrompt',
-                (original) => {
-                    const self = this;
-                    return function(...args) {
-                        original.call(this, ...args);
-                        self._onPromptShow();
-                    };
-                }
-            );
-
-            this._injectionManager.overrideMethod(
-                Main.screenShield._dialog, '_showClock',
-                (original) => {
-                    const self = this;
-                    return function(...args) {
-                        original.call(this, ...args);
-                        self._onPromptHide();
-                    };
-                }
-            );
-
-            //NOTE: Replacing TapAction with a fresh one if exists (for gnome 48 and older) 
-            const actions = Main.screenShield._dialog.get_actions();
-            const tapAction = actions.find(a => {
-                //HACK: Maybe not the most beautiful solution, but works
-                return a.constructor.name.includes('TapAction')
-            });
-            if (tapAction) {
-                Main.screenShield._dialog.remove_action(tapAction);
-                
-                let newAction = new Clutter.TapAction();
-                newAction.connect('tap', Main.screenShield._dialog._showPrompt.bind(Main.screenShield._dialog));
-                Main.screenShield._dialog.add_action(newAction);
-            }
-
-            Main.screenShield._dialog._updateBackgrounds();
+            this._injectIntoDialog();
         }, (err) => {
             console.error(`Unable to intercept all windows: ${err}`);
         })
+    }
+
+    _injectIntoDialog() {
+        // `active-changed` can fire a hair before `_dialog` is
+        // populated in some GNOME versions. Poll briefly if so.
+        const dialog = Main.screenShield._dialog;
+        if (!dialog) {
+            GLib.timeout_add(GLib.PRIORITY_DEFAULT, 100, () => {
+                if (this._lockActive) this._injectIntoDialog();
+                return GLib.SOURCE_REMOVE;
+            });
+            return;
+        }
+
+        this._injectCreateBackground();
+
+        this._injectionManager.overrideMethod(
+            dialog, '_showPrompt',
+            (original) => {
+                const self = this;
+                return function(...args) {
+                    original.call(this, ...args);
+                    self._onPromptShow();
+                };
+            }
+        );
+
+        this._injectionManager.overrideMethod(
+            dialog, '_showClock',
+            (original) => {
+                const self = this;
+                return function(...args) {
+                    original.call(this, ...args);
+                    self._onPromptHide();
+                };
+            }
+        );
+
+        //NOTE: Replacing TapAction with a fresh one if exists (for gnome 48 and older)
+        const actions = dialog.get_actions();
+        const tapAction = actions.find(a => {
+            //HACK: Maybe not the most beautiful solution, but works
+            return a.constructor.name.includes('TapAction')
+        });
+        if (tapAction) {
+            dialog.remove_action(tapAction);
+
+            let newAction = new Clutter.TapAction();
+            newAction.connect('tap', dialog._showPrompt.bind(dialog));
+            dialog.add_action(newAction);
+        }
+
+        dialog._updateBackgrounds();
     }
 
     _injectCreateBackground() {
@@ -204,7 +258,7 @@ export default class LockscreenExtension extends Extension {
                 });
             })
         }
-        
+
         if (this._promptSettings[Keys.PROMPT_PAUSE])
             this._player?.pause();
     }
@@ -216,7 +270,7 @@ export default class LockscreenExtension extends Extension {
         if (this._promptSettings[Keys.PROMPT_CHANGE_BLUR]) {
             const radius = this._blurRadius;
             const brightness = radius ? this._blurBrightness : 1;
-            
+
             Object.values(this._wrapperActors).forEach(actor => {
                 actor.ease_property('@effects.lockscreen-extension-blur.radius', radius, {
                     duration: this._promptSettings[Keys.PROMPT_BLUR_ANIM_DURATION],
@@ -267,26 +321,26 @@ export default class LockscreenExtension extends Extension {
         const isLastMonitor = monitorIndex === Main.layoutManager.monitors.length - 1;
         const monitor = Main.layoutManager.monitors[monitorIndex];
         const windowActor = this._windowActors[targetConnector];
-        
+
         if (windowActor) {
             const parent = windowActor.get_parent();
             if (parent) parent.remove_child(windowActor);
-            
+
             const wrapper = new Clutter.Actor();
-            
+
             Main.screenShield._dialog._backgroundGroup.add_child(wrapper);
             Main.screenShield._dialog._backgroundGroup.set_child_above_sibling(wrapper, null);
-            
+
             wrapper.add_effect(new Shell.BlurEffect(this._blurEffect));
 
             // Adding color desaturation effect if needed
             if (this._promptSettings[Keys.PROMPT_GRAYSCALE]) {
                 wrapper.add_effect_with_name(
-                    'lockscreen-extension-desaturate', 
+                    'lockscreen-extension-desaturate',
                     new Clutter.DesaturateEffect({ factor: 0.0 })
                 );
             }
-            
+
             if (!this._backgroundCreated)
                 wrapper.opacity = 0;
 
@@ -312,8 +366,8 @@ export default class LockscreenExtension extends Extension {
                 wrapper.set_size(monitor.width, monitor.height);
                 wrapper.set_clip_to_allocation(true);
 
-                // NOTE: 
-                // This might look like an overkill, 
+                // NOTE:
+                // This might look like an overkill,
                 // but you really need to aggressively position actors on any
                 // size/position change
                 const fixPositionAndScale = () => {
@@ -328,16 +382,16 @@ export default class LockscreenExtension extends Extension {
                 const sigW = windowActor.connect('notify::width', fixPositionAndScale);
                 const sigH = windowActor.connect('notify::height', fixPositionAndScale);
                 this._lockPositionSignals.push({ actor: windowActor, ids: [sigX, sigY, sigW, sigH] });
-               
+
                 fixPositionAndScale();
             }
-            
+
             this._wrapperActors[targetConnector] = wrapper;
 
         } else {
             console.warn(`No window actor for monitor ${monitorIndex}, skipping`);
         }
-       
+
         if (!this._backgroundCreated && isLastMonitor) {
             this._initLoginManager();
             this._startAnimation();
@@ -363,20 +417,22 @@ export default class LockscreenExtension extends Extension {
         });
     }
 
-    disable() {
+    _teardownForUnlock() {
         for (const { actor, ids } of this._lockPositionSignals) {
             for (const id of ids) {
-                actor.disconnect(id);
+                try { actor.disconnect(id); } catch (_) { /* actor gone */ }
             }
         }
         this._lockPositionSignals = [];
 
         // Return all window actors to window_group before destroying
         for (const windowActor of Object.values(this._windowActors)) {
-            const parent = windowActor.get_parent();
-            if (parent) parent.remove_child(windowActor);
-            global.window_group.add_child(windowActor);
-            windowActor.hide();
+            try {
+                const parent = windowActor.get_parent();
+                if (parent) parent.remove_child(windowActor);
+                global.window_group.add_child(windowActor);
+                windowActor.hide();
+            } catch (_) { /* actor gone */ }
         }
         this._windowActors = {};
 
@@ -386,17 +442,35 @@ export default class LockscreenExtension extends Extension {
         this._injectionManager?.clear();
         this._injectionManager = null;
 
-        if (this._sleepId) {
+        if (this._sleepId && this._loginManager) {
             this._loginManager.disconnect(this._sleepId);
             this._sleepId = null;
         }
+        this._loginManager = null;
 
         Object.values(this._wrapperActors).forEach(actor => {
-            actor.remove_effect_by_name('lockscreen-extension-blur');
-            actor.remove_effect_by_name('lockscreen-extension-desaturate');
-            actor.destroy()
-        })
+            try {
+                actor.remove_effect_by_name('lockscreen-extension-blur');
+                actor.remove_effect_by_name('lockscreen-extension-desaturate');
+                actor.destroy();
+            } catch (_) { /* already destroyed */ }
+        });
         this._wrapperActors = {};
+        this._backgroundCreated = false;
+        this._promptShown = false;
+    }
+
+    disable() {
+        if (this._screenShieldId) {
+            Main.screenShield.disconnect(this._screenShieldId);
+            this._screenShieldId = 0;
+        }
+
+        if (this._lockActive) {
+            this._teardownForUnlock();
+            this._lockActive = false;
+        }
+
         this._settings = null;
     }
 }
