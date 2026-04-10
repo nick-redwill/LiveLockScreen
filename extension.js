@@ -7,6 +7,7 @@ import St from 'gi://St';
 import Shell from 'gi://Shell';
 import Clutter from 'gi://Clutter';
 import GLib from 'gi://GLib';
+import Gio from 'gi://Gio';
 
 import { Keys } from './enums.js';
 import { PlayerProcess } from './core/player_process.js';
@@ -95,6 +96,7 @@ export default class LockscreenExtension extends Extension {
         this._wrapperActors = {}; // connector -> actor
         this._windowActors = {};  // connector -> actor
         this._lockPositionSignals = [];
+        this._displayWakeTimers = [];
 
         this._promptShown = false;
         this._injectionManager = null;
@@ -437,6 +439,51 @@ export default class LockscreenExtension extends Extension {
             this._player.play();
 
             this._backgroundCreated = true;
+
+            // After the shield becomes active, gnome-settings-daemon
+            // issues a physical DPMS blank on the display (see the
+            // comment in gnome-shell/js/ui/screenShield.js activate():
+            // "when we emit ActiveChanged(true), gnome-settings-daemon
+            // blanks the screen"). Normally the shield's black
+            // lightbox fade hides this, but with lightbox suppression
+            // enabled the monitor can lose signal just as our video
+            // is coming up — especially on slower hardware where the
+            // player subprocess takes ~1s to produce its first frame.
+            //
+            // Force PowerSaveMode back to ON via Mutter's DisplayConfig
+            // D-Bus interface, then repeat on a short timer to fight
+            // any asynchronous blanking g-s-d may still schedule.
+            this._wakeDisplay();
+            for (const delayMs of [100, 300, 700, 1500, 3000]) {
+                const id = GLib.timeout_add(GLib.PRIORITY_DEFAULT, delayMs, () => {
+                    if (this._lockActive) this._wakeDisplay();
+                    return GLib.SOURCE_REMOVE;
+                });
+                this._displayWakeTimers.push(id);
+            }
+        }
+    }
+
+    _wakeDisplay() {
+        try {
+            Gio.DBus.session.call(
+                'org.gnome.Mutter.DisplayConfig',
+                '/org/gnome/Mutter/DisplayConfig',
+                'org.freedesktop.DBus.Properties',
+                'Set',
+                new GLib.Variant('(ssv)', [
+                    'org.gnome.Mutter.DisplayConfig',
+                    'PowerSaveMode',
+                    new GLib.Variant('i', 0),
+                ]),
+                null,
+                Gio.DBusCallFlags.NONE,
+                -1,
+                null,
+                null
+            );
+        } catch (e) {
+            console.warn('LiveLockScreen: failed to force display wake:', e);
         }
     }
 
@@ -457,6 +504,12 @@ export default class LockscreenExtension extends Extension {
     }
 
     _teardownForUnlock() {
+        // Cancel any pending display-wake timers.
+        for (const id of this._displayWakeTimers) {
+            try { GLib.source_remove(id); } catch (_) { /* already fired */ }
+        }
+        this._displayWakeTimers = [];
+
         for (const { actor, ids } of this._lockPositionSignals) {
             for (const id of ids) {
                 try { actor.disconnect(id); } catch (_) { /* actor gone */ }
