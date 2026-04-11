@@ -60,6 +60,9 @@ export default class LockscreenExtension extends Extension {
         this._promptShown = false;
         this._injectionManager = null;
         this._player = null;
+
+        this._injectRetryId = 0;
+        this._injectAttempts = 0;
     }
 
     _onActiveChanged() {
@@ -167,14 +170,30 @@ export default class LockscreenExtension extends Extension {
     _injectIntoDialog() {
         // `active-changed` can fire a hair before `_dialog` is
         // populated in some GNOME versions. Poll briefly if so.
+        //
+        // We cap the retry loop at ~2s worth of 100ms ticks. The
+        // original single-shot 100ms retry was too short on at
+        // least some GNOME 49 setups, where `_dialog` appears to
+        // be recreated on each lock and isn't ready yet on second
+        // and subsequent locks. The retry id is tracked so
+        // `_teardownForUnlock()` can cancel it and avoid firing
+        // injection work into a half-torn-down state.
         const dialog = Main.screenShield._dialog;
         if (!dialog) {
-            GLib.timeout_add(GLib.PRIORITY_DEFAULT, 100, () => {
+            if (this._injectAttempts >= 20) {
+                console.warn('LiveLockScreen: _dialog never appeared after 20 retries, giving up');
+                this._injectAttempts = 0;
+                return;
+            }
+            this._injectAttempts++;
+            this._injectRetryId = GLib.timeout_add(GLib.PRIORITY_DEFAULT, 100, () => {
+                this._injectRetryId = 0;
                 if (this._lockActive) this._injectIntoDialog();
                 return GLib.SOURCE_REMOVE;
             });
             return;
         }
+        this._injectAttempts = 0;
 
         this._injectCreateBackground();
 
@@ -418,6 +437,14 @@ export default class LockscreenExtension extends Extension {
     }
 
     _teardownForUnlock() {
+        // Cancel any pending dialog-injection retry so it can't fire
+        // into a partially torn-down state or leak across lock cycles.
+        if (this._injectRetryId) {
+            try { GLib.source_remove(this._injectRetryId); } catch (_) {}
+            this._injectRetryId = 0;
+        }
+        this._injectAttempts = 0;
+
         for (const { actor, ids } of this._lockPositionSignals) {
             for (const id of ids) {
                 try { actor.disconnect(id); } catch (_) { /* actor gone */ }
