@@ -1,8 +1,8 @@
 <p align="center">
   <img src="https://img.shields.io/github/stars/nick-redwill/LiveLockScreen">
   <img src="https://img.shields.io/github/license/nick-redwill/LiveLockScreen">
-  <img alt="GNOME Shell" src="https://img.shields.io/badge/GNOME_Shell-46%2B-4A86CF?logo=gnome&logoColor=white"/>
-  <img src="https://img.shields.io/badge/status-active-success">
+  <img src="https://img.shields.io/badge/GNOME%20Shell-46--50-blue">
+  <img src="https://img.shields.io/badge/status-experimental-orange">
 </p>
 
 <p align="center">
@@ -13,18 +13,9 @@
 
 A GNOME Shell extension that lets you set any video as your lock screen background.
 
-> ⚠️ If you are having issues with current version you may check out legacy branch however it is highly recommended to stick with new versions for better performance.
-
-## Design Philosophy
-
-> "Do one thing and do it well."  
-> — Unix philosophy
-
-This extension focuses on a single goal: playing videos on the lock screen.
-
-It is designed to be simple, lightweight, and reliable.
-
-If you're looking for more advanced lock screen or desktop customization, you may want to explore alternative extensions or check out some forks of this project.
+> ⚠️ This branch is experimental and aims to solve issues present in the current stable version while improving performance and compatibility with older GNOME versions.
+>
+> Once testing is complete, this version will replace the current stable release.
 
 ## Features
 
@@ -40,6 +31,11 @@ If you're looking for more advanced lock screen or desktop customization, you ma
 - 🔊 Optional audio output with volume control and fade-in/out
 - 🔑 Interactive behavior on password prompt (blur/brightness change, video pause, grayscale)
 
+## TODO
+
+- [ ] Test thoroughly
+- [ ] Publish to extensions.gnome.org
+
 ## Known Issues
 
 - Possible audio and video desync after suspend/wake
@@ -48,22 +44,12 @@ If you're looking for more advanced lock screen or desktop customization, you ma
 
 ## Installation
 
-### Install from GNOME Extensions
-
-<a href="https://extensions.gnome.org/extension/9419/live-lock-screen/">
-  <img src="https://github.com/user-attachments/assets/d15de748-11b8-4a85-ad34-ec7786547b3c" width="250" alt="Install from GNOME Extensions">
-</a>
-
-> ⚠️ Due to the review process, the version on GNOME Extensions may lag behind the latest code in this repository.  
-> For the newest features, it is recommended to install manually from this branch.  
-> If you’d like to try the latest (possibly unstable) features, you can switch to the `experimental` branch.
-  
 ### Manual
 
 1. Clone the repository:
 
    ```bash
-   git clone https://github.com/nick-redwill/LiveLockScreen.git
+   git clone -b experimental https://github.com/nick-redwill/LiveLockScreen.git
    ```
 2. Copy to your extensions folder:
 
@@ -82,22 +68,22 @@ If you're looking for more advanced lock screen or desktop customization, you ma
 - GNOME Shell 46+
 - GStreamer with good/bad plugins:
   ```bash
-  # Fedora
-  sudo dnf install gstreamer1-plugins-good gstreamer1-plugins-bad-free gstreamer1-plugins-ugly gstreamer1-plugins-bad-free-extras
+    # Fedora
+    sudo dnf install gstreamer1-plugins-good gstreamer1-plugins-bad-free gstreamer1-plugins-ugly gstreamer1-plugins-bad-free-extras
 
-  # Ubuntu/Debian
-  sudo apt install gstreamer1.0-plugins-good gstreamer1.0-plugins-bad gstreamer1.0-plugins-ugly
+    # Ubuntu/Debian
+    sudo apt install gstreamer1.0-plugins-good gstreamer1.0-plugins-bad gstreamer1.0-plugins-ugly
   ```
 - GStreamer GTK4 video sink (`gtk4paintablesink`):
   ```bash
-  # Fedora
-  sudo dnf install gstreamer1-plugin-gtk4
+    # Fedora
+    sudo dnf install gstreamer1-plugin-gtk4
 
-  # Ubuntu 24.10+ / Debian (newer)
-  sudo apt install gstreamer1.0-gtk4
+    # Ubuntu 24.10+ / Debian (newer)
+    sudo apt install gstreamer1.0-gtk4
 
-  # Ubuntu 24.04 — not available as a package.
-  # Either build from source or download from launchpad
+    # Ubuntu 24.04 — not available as a package.
+    # Either build from source or download from launchpad
   ```
 
 ## Support
