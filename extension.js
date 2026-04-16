@@ -15,12 +15,13 @@ import { isOnBattery } from './utils/battery.js';
 import { isGtk4PaintableSinkAvailable } from './utils/check_dependencies.js';
 import { sendErrorNotification } from './utils/notifications.js';
 
+const MAX_DIALOG_INJECTS = 100;
+const DIALOG_INJECT_INTERVAL = 100;
+const WINDOW_TIMEOUT = 10000;
 
 export default class LockscreenExtension extends Extension {
     enable() {
         this._resetLockState();
-        this._lockActive = false;
-        this._screenShieldId = 0;
 
         if (!isGtk4PaintableSinkAvailable()) {
             sendErrorNotification(
@@ -31,24 +32,7 @@ export default class LockscreenExtension extends Extension {
         }
 
         this._settings = this.getSettings();
-
-        // Defer the actual player setup until the screen shield
-        // reports it is active. Hooking `Main.screenShield._dialog`
-        // directly at enable() time is unreliable: the dialog object
-        // can be null (never locked yet), or become a dead reference
-        // if GNOME recreates it between enable() and the next lock
-        // cycle. Listening to `active-changed` guarantees we inject
-        // into the current, live dialog on every lock.
-        this._screenShieldId = Main.screenShield.connect(
-            'active-changed',
-            this._onActiveChanged.bind(this)
-        );
-
-        // If the shield is already active at enable() time (e.g. the
-        // user just toggled the extension on from the lock screen),
-        // run setup immediately.
-        if (Main.screenShield.active)
-            this._onActiveChanged();
+        this._setupForLock();
     }
 
     _resetLockState() {
@@ -63,18 +47,6 @@ export default class LockscreenExtension extends Extension {
 
         this._injectRetryId = 0;
         this._injectAttempts = 0;
-    }
-
-    _onActiveChanged() {
-        const active = Main.screenShield.active;
-
-        if (active && !this._lockActive) {
-            this._lockActive = true;
-            this._setupForLock();
-        } else if (!active && this._lockActive) {
-            this._lockActive = false;
-            this._teardownForUnlock();
-        }
     }
 
     _setupForLock() {
@@ -152,7 +124,7 @@ export default class LockscreenExtension extends Extension {
         );
 
         const monitorCount = Main.layoutManager.monitors.length;
-        this._player.waitForWindows(monitorCount, 10000, (data) => {
+        this._player.waitForWindows(monitorCount, WINDOW_TIMEOUT, (data) => {
             for (const win of data) {
                 //NOTE: Relying on connector name for better reliability (indices are not static)
                 const title = win.get_title() || '';
@@ -168,33 +140,24 @@ export default class LockscreenExtension extends Extension {
     }
 
     _injectIntoDialog() {
-        // `active-changed` can fire a hair before `_dialog` is
-        // populated in some GNOME versions. Poll briefly if so.
-        //
-        // We cap the retry loop at ~2s worth of 100ms ticks. The
-        // original single-shot 100ms retry was too short on at
-        // least some GNOME 49 setups, where `_dialog` appears to
-        // be recreated on each lock and isn't ready yet on second
-        // and subsequent locks. The retry id is tracked so
-        // `_teardownForUnlock()` can cancel it and avoid firing
-        // injection work into a half-torn-down state.
         const dialog = Main.screenShield._dialog;
+
         if (!dialog) {
-            if (this._injectAttempts >= 20) {
-                console.warn('LiveLockScreen: _dialog never appeared after 20 retries, giving up');
+            if (this._injectAttempts >= MAX_DIALOG_INJECTS) {
+                console.warn(`LiveLockScreen: _dialog never appeared after ${MAX_DIALOG_INJECTS} retries, giving up`);
                 this._injectAttempts = 0;
                 return;
             }
             this._injectAttempts++;
-            this._injectRetryId = GLib.timeout_add(GLib.PRIORITY_DEFAULT, 100, () => {
+            this._injectRetryId = GLib.timeout_add(GLib.PRIORITY_DEFAULT, DIALOG_INJECT_INTERVAL, () => {
                 this._injectRetryId = 0;
-                if (this._lockActive) this._injectIntoDialog();
+                this._injectIntoDialog();
                 return GLib.SOURCE_REMOVE;
             });
             return;
         }
-        this._injectAttempts = 0;
 
+        this._injectAttempts = 0;
         this._injectCreateBackground();
 
         this._injectionManager.overrideMethod(
@@ -436,30 +399,26 @@ export default class LockscreenExtension extends Extension {
         });
     }
 
-    _teardownForUnlock() {
-        // Cancel any pending dialog-injection retry so it can't fire
-        // into a partially torn-down state or leak across lock cycles.
+    disable() {
         if (this._injectRetryId) {
-            try { GLib.source_remove(this._injectRetryId); } catch (_) {}
+            GLib.source_remove(this._injectRetryId);
             this._injectRetryId = 0;
         }
         this._injectAttempts = 0;
 
         for (const { actor, ids } of this._lockPositionSignals) {
             for (const id of ids) {
-                try { actor.disconnect(id); } catch (_) { /* actor gone */ }
+                actor.disconnect(id);
             }
         }
         this._lockPositionSignals = [];
 
         // Return all window actors to window_group before destroying
         for (const windowActor of Object.values(this._windowActors)) {
-            try {
-                const parent = windowActor.get_parent();
-                if (parent) parent.remove_child(windowActor);
-                global.window_group.add_child(windowActor);
-                windowActor.hide();
-            } catch (_) { /* actor gone */ }
+            const parent = windowActor.get_parent();
+            if (parent) parent.remove_child(windowActor);
+            global.window_group.add_child(windowActor);
+            windowActor.hide();
         }
         this._windowActors = {};
 
@@ -469,35 +428,17 @@ export default class LockscreenExtension extends Extension {
         this._injectionManager?.clear();
         this._injectionManager = null;
 
-        if (this._sleepId && this._loginManager) {
+        if (this._sleepId) {
             this._loginManager.disconnect(this._sleepId);
             this._sleepId = null;
         }
-        this._loginManager = null;
 
         Object.values(this._wrapperActors).forEach(actor => {
-            try {
-                actor.remove_effect_by_name('lockscreen-extension-blur');
-                actor.remove_effect_by_name('lockscreen-extension-desaturate');
-                actor.destroy();
-            } catch (_) { /* already destroyed */ }
-        });
+            actor.remove_effect_by_name('lockscreen-extension-blur');
+            actor.remove_effect_by_name('lockscreen-extension-desaturate');
+            actor.destroy()
+        })
         this._wrapperActors = {};
-        this._backgroundCreated = false;
-        this._promptShown = false;
-    }
-
-    disable() {
-        if (this._screenShieldId) {
-            Main.screenShield.disconnect(this._screenShieldId);
-            this._screenShieldId = 0;
-        }
-
-        if (this._lockActive) {
-            this._teardownForUnlock();
-            this._lockActive = false;
-        }
-
         this._settings = null;
     }
 }
