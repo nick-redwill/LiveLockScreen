@@ -7,7 +7,7 @@ export const Keys = {
     FRAMERATE: "background-video-framerate",
     LOOPED: "background-video-looped",
     FADE_IN_DURATION: "background-fade-in-duration",
-    
+
     BLUR_RADIUS: "background-video-blur-radius",
     BLUR_BRIGHTNESS: "background-video-blur-brightness",
 
@@ -22,10 +22,11 @@ export const Keys = {
 
     DEBUG_USE_COLOR_ACCURATE: "debug-use-color-accurate",
     DEBUG_FORCE_FULLSCREEN: "debug-force-fullscreen",
+    DEBUG_FORCE_GIF_SUPPORT: "debug-force-gif-support",
 };
 
 export const ScalingMode = {
     STRETCH: 0,
     FIT: 1,
     COVER: 2,
-}
+};

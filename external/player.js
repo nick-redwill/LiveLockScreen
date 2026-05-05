@@ -113,8 +113,6 @@ export default class PlayerMulti {
             const connector = gdkMonitor.get_connector();
             const geo = gdkMonitor?.get_geometry();
 
-            print(`Monitor ${i} connector: ${connector}`);
-
             const window = new Gtk.Window({
                 application: this._app,
                 title: `LLS-Player-${connector}`,
