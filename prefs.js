@@ -34,7 +34,7 @@ export default class LiveLockscreenExtensionPrefs extends ExtensionPreferences {
             subtitle: 
                 `gtk4paintablesink is not available.\n\n` +
                 `Install the GStreamer GTK4 plugin for your distribution:\n` +
-                `  • Fedora/RHEL: gstreamer1-plugins-gtk4\n` +
+                `  • Fedora/RHEL: gstreamer1-plugin-gtk4\n` +
                 `  • Ubuntu/Debian: gstreamer1.0-gtk4\n` +
                 `  • Arch: gst-plugin-gtk4\n\n` +
                 `See README.md for more information.`,
