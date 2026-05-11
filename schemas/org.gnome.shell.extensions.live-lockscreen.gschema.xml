@@ -84,5 +84,9 @@
             <default>false</default>
             <summary>Whether to force fullscreen on player windows (not recommended)</summary>
         </key>
+        <key name="debug-force-gif-support" type="b">
+            <default>false</default>
+            <summary>Whether to force GIF support on older gnome versions (not recommended)</summary>
+        </key>
     </schema>
 </schemalist>
