@@ -16,14 +16,15 @@ export default class LLSPrefs extends ExtensionPreferences {
         window.set_search_enabled(true);
 
         if (!isGtk4PaintableSinkAvailable()) {
-            page.add(this._buildDependencyErrorGroup());
+            window.add(new DependencyErrorPage());
+            window.add(new AboutPage(this.metadata, this.path));
+            return;
         }
 
-        page.add(this._buildGeneralGroup(window))
-        page.add(this._buildAppearanceGroup(window))
-        page.add(this._buildPromptGroup(window))
-        page.add(this._buildDebugGroup(window))
-
-        window.add(page);
+        window.add(new GeneralPage(settings));
+        window.add(new AppearancePage(settings));
+        window.add(new PromptPage(settings));
+        window.add(new DebugPage(settings));
+        window.add(new AboutPage(this.metadata, this.path));
     }
 }
