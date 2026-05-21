@@ -4,9 +4,10 @@ import * as LoginManager from 'resource:///org/gnome/shell/misc/loginManager.js'
 import {Extension, InjectionManager} from 'resource:///org/gnome/shell/extensions/extension.js';
 
 import St from 'gi://St';
+import GLib from 'gi://GLib';
 import Shell from 'gi://Shell';
 import Clutter from 'gi://Clutter';
-import GLib from 'gi://GLib';
+import GObject from 'gi://GObject';
 
 import { Keys } from './enums.js';
 import { PlayerProcess } from './core/player_process.js';
@@ -139,8 +140,10 @@ export default class LockscreenExtension extends Extension {
         })
     }
 
+    //TODO: Split into smaller functions maybe
     _injectIntoDialog() {
         const dialog = Main.screenShield._dialog;
+        const gtype = dialog._swipeTracker.constructor.$gtype;
 
         if (!dialog) {
             if (this._injectAttempts >= MAX_DIALOG_INJECTS) {
@@ -170,6 +173,17 @@ export default class LockscreenExtension extends Extension {
                 };
             }
         );
+        
+        const swipeSignalId = GObject.signal_lookup('end', gtype);
+    
+        dialog._swipeTracker.disconnect(swipeSignalId);
+        dialog._swipeEndId = dialog._swipeTracker.connect('end', (...args) => {
+            dialog._swipeEnd(...args);
+            if (dialog._activePage == dialog._clock)
+                this._onPromptHide();
+            else
+                this._onPromptShow();
+        });
 
         this._injectionManager.overrideMethod(
             dialog, '_showClock',
