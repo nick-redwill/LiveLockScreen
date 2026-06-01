@@ -234,16 +234,21 @@ export default class LockscreenExtension extends Extension {
             const radius = this._promptSettings[Keys.PROMPT_BLUR_RADIUS];
             const brightness = radius ? this._promptSettings[Keys.PROMPT_BLUR_BRIGHTNESS] : 1;
 
-            Object.values(this._wrapperActors).forEach(actor => {
-                actor.ease_property('@effects.lockscreen-extension-blur.radius', radius, {
-                    duration: this._promptSettings[Keys.PROMPT_BLUR_ANIM_DURATION],
-                    mode: Clutter.AnimationMode.EASE_OUT_QUAD,
-                });
-                actor.ease_property('@effects.lockscreen-extension-blur.brightness', brightness, {
-                    duration: this._promptSettings[Keys.PROMPT_BLUR_ANIM_DURATION],
-                    mode: Clutter.AnimationMode.EASE_OUT_QUAD,
-                });
-            })
+            // Adding a slight timeout helps get rid of video stutters
+            setTimeout(() => {
+                Object.values(this._wrapperActors).forEach(actor => {
+                    actor.ease_property('@effects.lockscreen-extension-blur.radius', radius, {
+                        duration: this._promptSettings[Keys.PROMPT_BLUR_ANIM_DURATION],
+                        mode: Clutter.AnimationMode.EASE_OUT_QUAD,
+                    });
+                    actor.ease_property('@effects.lockscreen-extension-blur.brightness', brightness, {
+                        duration: this._promptSettings[Keys.PROMPT_BLUR_ANIM_DURATION],
+                        mode: Clutter.AnimationMode.EASE_OUT_QUAD,
+                    });
+                })
+
+                return GLib.SOURCE_REMOVE;
+            }, 10);
         }
 
         if (this._promptSettings[Keys.PROMPT_GRAYSCALE]) {
@@ -257,6 +262,7 @@ export default class LockscreenExtension extends Extension {
 
         if (this._promptSettings[Keys.PROMPT_PAUSE])
             this._player?.pause();
+            
     }
 
     _onPromptHide() {
