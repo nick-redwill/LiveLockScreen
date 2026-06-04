@@ -18,7 +18,7 @@ class LLSDependencyErrorPage extends Adw.PreferencesPage {
                 `gtk4paintablesink is not available.\n\n` +
                 `Install the GStreamer GTK4 plugin for your distribution:\n` +
                 `  • Fedora/RHEL: gstreamer1-plugin-gtk4\n` +
-                `  • Ubuntu/Debian: gstreamer1.0-gtk4\n` +
+                `  • Ubuntu (24.10+)/Debian: gstreamer1.0-gtk4\n` +
                 `  • Arch: gst-plugin-gtk4\n\n` +
                 `See README.md for more information.`,
             icon_name: 'dialog-error-symbolic',

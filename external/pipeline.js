@@ -2,6 +2,8 @@ import Gst from 'gi://Gst';
 import GLib from 'gi://GLib';
 import GstController from 'gi://GstController';
 
+import { initGst } from '../utils/safe_gst.js';
+
 const FADE_DURATION = 300
 
 export default class Pipeline {
@@ -23,9 +25,7 @@ export default class Pipeline {
     }
 
     init() {
-        if (!Gst.is_initialized())
-            if (!Gst.init(null))
-                throw new Error('Unable to initialize GStreamer');
+        initGst();
 
         try {
             this._pipeline = Gst.ElementFactory.make('playbin', 'playbin');

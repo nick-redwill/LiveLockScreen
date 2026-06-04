@@ -1,6 +1,8 @@
 import Gio from 'gi://Gio';
 import GLib from 'gi://GLib';
 
+import { error } from '../utils/logging.js';
+
 export class PlayerProcess {
     constructor({ 
         playerPath, videoPath, scalingMode, loop, volume, 
@@ -93,7 +95,7 @@ export class PlayerProcess {
         try {
             this._stdin.put_string(`${command}\n`, null);
         } catch (e) {
-            console.error(`PlayerProcess: failed to send command "${command}":`, e);
+            error(`failed to send command "${command}":`, e);
         }
     }
 

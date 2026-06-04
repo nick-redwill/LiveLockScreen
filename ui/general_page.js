@@ -4,7 +4,8 @@ import Gtk from 'gi://Gtk';
 import GObject from 'gi://GObject';
 
 import { Keys } from '../enums.js';
-import { getShellVersion } from "../utils/shell_version.js";
+import { getShellVersion } from "../utils/shell_version_dbus.js";
+import { error } from '../utils/logging.js';
 
 export var GeneralPage = GObject.registerClass(
 class LLSGeneralPage extends Adw.PreferencesPage {
@@ -175,7 +176,7 @@ class LLSGeneralPage extends Adw.PreferencesPage {
                     this._settings.set_string(Keys.VIDEO_PATH, '');
                 }
             } catch (e) {
-                console.log(`Error selecting file: ${e}`);
+                error(`Error selecting file: ${e}`);
             }
         });
     }
