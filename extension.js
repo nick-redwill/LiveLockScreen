@@ -15,8 +15,10 @@ import { PlayerProcess } from './core/player_process.js';
 import { isOnBattery } from './utils/battery.js';
 import { isGtk4PaintableSinkAvailable } from './utils/check_dependencies.js';
 import { sendErrorNotification } from './utils/notifications.js';
+import { SHELL_VERSION } from './utils/shell_version.js';
+import { warn, error } from './utils/logging.js';
 
-const MAX_DIALOG_INJECTS = 100;
+const MAX_DIALOG_INJECT_ATTEMPTS = 100;
 const DIALOG_INJECT_INTERVAL = 100;
 const WINDOW_TIMEOUT = 10000;
 
@@ -41,25 +43,28 @@ export default class LockscreenExtension extends Extension {
         this._wrapperActors = {}; // connector -> actor
         this._windowActors = {};  // connector -> actor
         this._lockPositionSignals = [];
-
+        
         this._promptShown = false;
         this._injectionManager = null;
         this._player = null;
+        this._tapAction = null;
 
         this._injectRetryId = 0;
         this._injectAttempts = 0;
+        this._blurEffectTimeoutId = 0;
+        this._tapSignalId = 0;
     }
 
     _setupForLock() {
         const disableOnBatter = this._settings.get_boolean(Keys.DISABLE_ON_BATTERY);
         if (disableOnBatter && isOnBattery()) {
-            console.warn('Skipping on battery');
+            warn('Skipping on battery');
             return;
         }
 
         const videoPath = this._settings.get_string(Keys.VIDEO_PATH);
         if (!videoPath) {
-            console.warn('Video not set, falling back');
+            warn('Video not set, falling back');
             return;
         }
 
@@ -107,7 +112,7 @@ export default class LockscreenExtension extends Extension {
         try {
             this._player.run();
         } catch (e) {
-            console.error('Failed to run video player! Falling back...', e);
+            error('Failed to run video player! Falling back...', e);
             this._player = null;
             return;
         }
@@ -136,18 +141,17 @@ export default class LockscreenExtension extends Extension {
 
             this._injectIntoDialog();
         }, (err) => {
-            console.error(`Unable to intercept all windows: ${err}`);
+            error(`Unable to intercept all windows: ${err}`);
         })
     }
 
-    //TODO: Split into smaller functions maybe
     _injectIntoDialog() {
         const dialog = Main.screenShield._dialog;
         const gtype = dialog._swipeTracker.constructor.$gtype;
 
         if (!dialog) {
-            if (this._injectAttempts >= MAX_DIALOG_INJECTS) {
-                console.warn(`LiveLockScreen: _dialog never appeared after ${MAX_DIALOG_INJECTS} retries, giving up`);
+            if (this._injectAttempts >= MAX_DIALOG_INJECT_ATTEMPTS) {
+                error(`_dialog never appeared after ${MAX_DIALOG_INJECT_ATTEMPTS} attempts, giving up`);
                 this._injectAttempts = 0;
                 return;
             }
@@ -197,17 +201,11 @@ export default class LockscreenExtension extends Extension {
         );
 
         //NOTE: Replacing TapAction with a fresh one if exists (for gnome 48 and older)
-        const actions = dialog.get_actions();
-        const tapAction = actions.find(a => {
-            //HACK: Maybe not the most beautiful solution, but works
-            return a.constructor.name.includes('TapAction')
-        });
-        if (tapAction) {
-            dialog.remove_action(tapAction);
-
-            let newAction = new Clutter.TapAction();
-            newAction.connect('tap', dialog._showPrompt.bind(dialog));
-            dialog.add_action(newAction);
+        this._tapAction = (SHELL_VERSION < 49) ? new Clutter.TapAction() : null;
+        if (this._tapAction) {
+            this._tapSignalId = this._tapAction.connect(
+                'tap', dialog._showPrompt.bind(dialog)
+            );
         }
 
         dialog._updateBackgrounds();
@@ -235,7 +233,7 @@ export default class LockscreenExtension extends Extension {
             const brightness = radius ? this._promptSettings[Keys.PROMPT_BLUR_BRIGHTNESS] : 1;
 
             // Adding a slight timeout helps get rid of video stutters
-            setTimeout(() => {
+            this._blurEffectTimeoutId = GLib.timeout_add(GLib.PRIORITY_DEFAULT, 10, () => {
                 Object.values(this._wrapperActors).forEach(actor => {
                     actor.ease_property('@effects.lockscreen-extension-blur.radius', radius, {
                         duration: this._promptSettings[Keys.PROMPT_BLUR_ANIM_DURATION],
@@ -248,7 +246,7 @@ export default class LockscreenExtension extends Extension {
                 })
 
                 return GLib.SOURCE_REMOVE;
-            }, 10);
+            });
         }
 
         if (this._promptSettings[Keys.PROMPT_GRAYSCALE]) {
@@ -311,12 +309,12 @@ export default class LockscreenExtension extends Extension {
         }
 
         if (!targetConnector) {
-            console.warn("Actor not found for this monitor! Skipping...");
+            warn(`Actor not found for monitor ${monitorIndex}! Skipping...`);
             return;
         }
 
         if (targetConnector in this._wrapperActors) {
-            console.warn(`Wrapper already exists for monitor ${monitorIndex}, skipping`);
+            warn(`Wrapper already exists for monitor ${targetConnector}, skipping`);
             return;
         }
 
@@ -391,7 +389,7 @@ export default class LockscreenExtension extends Extension {
             this._wrapperActors[targetConnector] = wrapper;
 
         } else {
-            console.warn(`No window actor for monitor ${monitorIndex}, skipping`);
+            warn(`No window actor for monitor ${targetConnector}, skipping`);
         }
 
         if (!this._backgroundCreated && isLastMonitor) {
@@ -420,12 +418,23 @@ export default class LockscreenExtension extends Extension {
     }
 
     disable() {
+        /* 
+         * User unlocked the screen. 
+         * Stopping the videoplayblack and cleaning everything up
+        */
         if (this._injectRetryId) {
             GLib.source_remove(this._injectRetryId);
             this._injectRetryId = 0;
         }
+        if (this._blurEffectTimeoutId) {
+            GLib.source_remove(this._blurEffectTimeoutId);
+            this._blurEffectTimeoutId = 0;
+        }
         this._injectAttempts = 0;
 
+        if (this._tapSignalId) {
+            this._tapAction.disconnect(this._tapSignalId);
+        }
         for (const { actor, ids } of this._lockPositionSignals) {
             for (const id of ids) {
                 actor.disconnect(id);
