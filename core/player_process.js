@@ -103,10 +103,7 @@ export class PlayerProcess {
             this._timeoutId = null;
         }
 
-        if (this._mapId) {
-            global.window_manager.disconnect(this._mapId);
-            this._mapId = null;
-        }
+        global.window_manager.disconnectObject(this);
 
         if (this._stdin) {
             try { this._stdin.close(null); } catch (_) {}
