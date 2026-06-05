@@ -42,7 +42,6 @@ export default class LockscreenExtension extends Extension {
         this._backgroundCreated = false;
         this._wrapperActors = {}; // connector -> actor
         this._windowActors = {};  // connector -> actor
-        this._lockPositionSignals = [];
         
         this._promptShown = false;
         this._injectionManager = null;
@@ -52,7 +51,6 @@ export default class LockscreenExtension extends Extension {
         this._injectRetryId = 0;
         this._injectAttempts = 0;
         this._blurEffectTimeoutId = 0;
-        this._tapSignalId = 0;
     }
 
     _setupForLock() {
@@ -178,16 +176,17 @@ export default class LockscreenExtension extends Extension {
             }
         );
         
+        // Removing the existing signal to use our custom one
         const swipeSignalId = GObject.signal_lookup('end', gtype);
-    
         dialog._swipeTracker.disconnect(swipeSignalId);
-        dialog._swipeEndId = dialog._swipeTracker.connect('end', (...args) => {
+
+        dialog._swipeTracker.connectObject('end', (...args) => {
             dialog._swipeEnd(...args);
             if (dialog._activePage == dialog._clock)
                 this._onPromptHide();
             else
                 this._onPromptShow();
-        });
+        }, this);
 
         this._injectionManager.overrideMethod(
             dialog, '_showClock',
@@ -203,8 +202,8 @@ export default class LockscreenExtension extends Extension {
         //NOTE: Replacing TapAction with a fresh one if exists (for gnome 48 and older)
         this._tapAction = (SHELL_VERSION < 49) ? new Clutter.TapAction() : null;
         if (this._tapAction) {
-            this._tapSignalId = this._tapAction.connect(
-                'tap', dialog._showPrompt.bind(dialog)
+            this._tapAction.connectObject(
+                'tap', dialog._showPrompt.bind(dialog), this
             );
         }
 
@@ -346,8 +345,7 @@ export default class LockscreenExtension extends Extension {
 
             wrapper.add_child(windowActor);
             wrapper.set_child_above_sibling(windowActor, null);
-
-            wrapper.connect('destroy', () => {
+            wrapper.connectObject('destroy', () => {
                 const p = windowActor.get_parent();
                 if (p) p.remove_child(windowActor);
                 global.window_group.add_child(windowActor);
@@ -377,11 +375,10 @@ export default class LockscreenExtension extends Extension {
                     windowActor.set_pivot_point(0, 0);
                     windowActor.set_scale(1, 1);
                 };
-                const sigX = windowActor.connect('notify::x', fixPositionAndScale);
-                const sigY = windowActor.connect('notify::y', fixPositionAndScale);
-                const sigW = windowActor.connect('notify::width', fixPositionAndScale);
-                const sigH = windowActor.connect('notify::height', fixPositionAndScale);
-                this._lockPositionSignals.push({ actor: windowActor, ids: [sigX, sigY, sigW, sigH] });
+                windowActor.connectObject('notify::x', fixPositionAndScale, this);
+                windowActor.connectObject('notify::y', fixPositionAndScale, this);
+                windowActor.connectObject('notify::width', fixPositionAndScale, this);
+                windowActor.connectObject('notify::height', fixPositionAndScale, this);
 
                 fixPositionAndScale();
             }
@@ -411,10 +408,10 @@ export default class LockscreenExtension extends Extension {
 
     _initLoginManager() {
         this._loginManager = LoginManager.getLoginManager();
-        this._sleepId = this._loginManager.connect('prepare-for-sleep', (_manager, aboutToSleep) => {
+        this._loginManager.connectObject('prepare-for-sleep', (_manager, aboutToSleep) => {
             if (!this._player) return;
             aboutToSleep ? this._player.pause() : this._player.play();
-        });
+        }, this);
     }
 
     disable() {
@@ -432,20 +429,15 @@ export default class LockscreenExtension extends Extension {
         }
         this._injectAttempts = 0;
 
-        if (this._tapSignalId) {
-            this._tapAction.disconnect(this._tapSignalId);
-        }
-        for (const { actor, ids } of this._lockPositionSignals) {
-            for (const id of ids) {
-                actor.disconnect(id);
-            }
-        }
-        this._lockPositionSignals = [];
+        Main.screenShield._dialog._swipeTracker?.disconnectObject(this);
+        this._tapAction?.disconnectObject(this);
 
         // Return all window actors to window_group before destroying
         for (const windowActor of Object.values(this._windowActors)) {
             const parent = windowActor.get_parent();
             if (parent) parent.remove_child(windowActor);
+            
+            windowActor.disconnectObject(this);
             global.window_group.add_child(windowActor);
             windowActor.hide();
         }
@@ -457,12 +449,10 @@ export default class LockscreenExtension extends Extension {
         this._injectionManager?.clear();
         this._injectionManager = null;
 
-        if (this._sleepId) {
-            this._loginManager.disconnect(this._sleepId);
-            this._sleepId = null;
-        }
+        this._loginManager?.disconnectObject(this);
 
         Object.values(this._wrapperActors).forEach(actor => {
+            actor.disconnectObject(this);
             actor.remove_effect_by_name('lockscreen-extension-blur');
             actor.remove_effect_by_name('lockscreen-extension-desaturate');
             actor.destroy()
