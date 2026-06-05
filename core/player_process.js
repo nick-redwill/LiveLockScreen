@@ -52,16 +52,14 @@ export class PlayerProcess {
     waitForWindows(count, timeoutMs, callback, errback) {
         const collected = [];
 
-        this._mapId = global.window_manager.connect_after('map', (_wm, windowActor) => {
+        this._mapId = global.window_manager.connectObject('map', (_wm, windowActor) => {
             const win = windowActor.get_meta_window();
             if (win.get_pid() !== this._pid) return;
 
             collected.push(win);
 
             if (collected.length === count) {
-                global.window_manager.disconnect(this._mapId);
-                this._mapId = null;
-
+                global.window_manager.disconnectObject(this);
                 if (this._timeoutId !== null) {
                     GLib.source_remove(this._timeoutId);
                     this._timeoutId = null;
@@ -69,13 +67,10 @@ export class PlayerProcess {
 
                 callback(collected);
             }
-        });
+        }, this);
 
         this._timeoutId = GLib.timeout_add(GLib.PRIORITY_DEFAULT, timeoutMs, () => {
-            if (this._mapId) {
-                global.window_manager.disconnect(this._mapId);
-                this._mapId = null;
-            }
+            global.window_manager.disconnectObject(this);
             this._timeoutId = null;
             errback?.(`timed out waiting for windows (got ${collected.length}/${count})`);
             return GLib.SOURCE_REMOVE;

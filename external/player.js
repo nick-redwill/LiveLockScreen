@@ -160,20 +160,10 @@ export default class PlayerMulti {
     }
 
     _cleanup() {
-        try {
-            this._commands?.destroy();
-        } catch(e) {
-            logError(e, 'Player: error destroying commands');
-        } finally {
-            this._commands = null;
-        }
+        this._commands?.destroy();
+        this._pipeline?.destroy();
 
-        try {
-            this._pipeline?.destroy();
-        } catch(e) {
-            logError(e, 'Player: error destroying pipeline');
-        } finally {
-            this._pipeline = null;
-        }
+        this._commands = null;
+        this._pipeline = null;
     }
 }
