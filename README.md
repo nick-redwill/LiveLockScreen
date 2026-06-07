@@ -11,7 +11,7 @@
 
 # Live Lock Screen
 
-A GNOME Shell extension that lets you set any video as your lock screen background.
+A GNOME Shell extension that lets you set any video/GIF as your lock screen background.
 
 > ⚠️ If you are having issues with current version you may check out legacy branch however it is highly recommended to stick with new versions for better performance.
 
@@ -20,7 +20,7 @@ A GNOME Shell extension that lets you set any video as your lock screen backgrou
 > "Do one thing and do it well."  
 > — Unix philosophy
 
-This extension focuses on a single goal: playing videos on the lock screen.
+This extension focuses on a single goal: playing multimedia on the lock screen.
 
 It is designed to be simple, lightweight, and reliable.
 
@@ -75,7 +75,7 @@ If you're looking for more advanced lock screen or desktop customization, you ma
    ```bash
    gnome-extensions enable live-lockscreen@nick-redwill
    ```
-4. Open the extension preferences and select your video file.
+4. Open the extension preferences and select your file.
 
 ## Requirements
 
