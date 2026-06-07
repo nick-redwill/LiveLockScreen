@@ -28,7 +28,7 @@ If you're looking for more advanced lock screen or desktop customization, you ma
 
 ## Features
 
-- 🎬 Play any video file as the lock screen background
+- 🎬 Play any video and GIF file as the lock screen background
 - 🔁 Loop support
 - 🎨 Video scaling modes (cover, fit, stretch)
 - 🔲 Transparent video support (RGBA)
