@@ -13,6 +13,8 @@
 
 A GNOME Shell extension that lets you set any video/GIF as your lock screen background.
 
+> ⚠️ On recent NVIDIA drivers, prolonged lock sessions may trigger a kernel-side memory leak that can lead to system-wide OOM events or crashes. This appears to be a driver issue rather than a bug in the extension.
+
 > ⚠️ If you are having issues with current version you may check out legacy branch however it is highly recommended to stick with new versions for better performance.
 
 ## Design Philosophy
