@@ -22,26 +22,22 @@ const MAX_DIALOG_INJECT_ATTEMPTS = 100;
 const DIALOG_INJECT_INTERVAL = 100;
 const WINDOW_TIMEOUT = 10000;
 
+//TODO: Use actual video size
+const VIDEO_W = 1920;
+const VIDEO_H = 1080;
+
 export default class LockscreenExtension extends Extension {
     enable() {
         this._resetLockState();
-
-        if (!isGtk4PaintableSinkAvailable()) {
-            sendErrorNotification(
-                'gtk4paintablesink is not available.' +
-                'See README.md for installation instructions.'
-            );
-            return;
-        }
-
         this._settings = this.getSettings();
         this._setupForLock();
     }
 
     _resetLockState() {
         this._backgroundCreated = false;
-        this._wrapperActors = {}; // connector -> actor
-        this._windowActors = {};  // connector -> actor
+        this._wrapperActors = [];
+        this._windowActor = null;
+        this._window = null;
         
         this._promptShown = false;
         this._injectionManager = null;
@@ -110,7 +106,7 @@ export default class LockscreenExtension extends Extension {
         try {
             this._player.run();
         } catch (e) {
-            error('Failed to run video player! Falling back...', e);
+            error('Failed to run video player! Falling back...' + e);
             this._player = null;
             return;
         }
@@ -127,15 +123,25 @@ export default class LockscreenExtension extends Extension {
             }
         );
 
-        const monitorCount = Main.layoutManager.monitors.length;
-        this._player.waitForWindows(monitorCount, WINDOW_TIMEOUT, (data) => {
-            for (const win of data) {
-                //NOTE: Relying on connector name for better reliability (indices are not static)
-                const title = win.get_title() || '';
-                const match = title.match(/^LLS-Player-(.+)$/);
-                const connector = match ? match[1] : null;
-                this._windowActors[connector] = win.get_compositor_private();
-            }
+        this._player.waitForWindow(WINDOW_TIMEOUT, (win) => {
+            print("Window intercepted")
+
+            this._window = win
+            this._windowActor = win.get_compositor_private();
+            
+            this._window.unmaximize()                
+            this._window.move_resize_frame(true, 0, 0, VIDEO_W, VIDEO_H)
+
+            //print(this._windowActor.get_width(), this._windowActor.get_height())
+            //print(this._window.get_frame_rect().width, this._window.get_frame_rect().height)
+            //print(this._window.resizeable)
+
+            const parent = this._windowActor.get_parent();
+            if (parent) parent.remove_child(this._windowActor);
+
+            global.stage.add_child(this._windowActor);
+            global.stage.set_child_below_sibling(this._windowActor, null);
+            this._windowActor.opacity = 0;
 
             this._injectIntoDialog();
         }, (err) => {
@@ -216,7 +222,7 @@ export default class LockscreenExtension extends Extension {
             (original) => {
                 const self = this;
                 return function(monitorIndex) {
-                    original.call(this, monitorIndex);
+                    original.call(this, monitorIndex);                    
                     self._handleMonitor(monitorIndex);
                 };
             }
@@ -233,7 +239,7 @@ export default class LockscreenExtension extends Extension {
 
             // Adding a slight timeout helps get rid of video stutters
             this._blurEffectTimeoutId = GLib.timeout_add(GLib.PRIORITY_DEFAULT, 10, () => {
-                Object.values(this._wrapperActors).forEach(actor => {
+                this._wrapperActors.forEach(actor => {
                     actor.ease_property('@effects.lockscreen-extension-blur.radius', radius, {
                         duration: this._promptSettings[Keys.PROMPT_BLUR_ANIM_DURATION],
                         mode: Clutter.AnimationMode.EASE_OUT_QUAD,
@@ -249,7 +255,7 @@ export default class LockscreenExtension extends Extension {
         }
 
         if (this._promptSettings[Keys.PROMPT_GRAYSCALE]) {
-            Object.values(this._wrapperActors).forEach(actor => {
+            this._wrapperActors.forEach(actor => {
                 actor.ease_property('@effects.lockscreen-extension-desaturate.factor', 1.0, {
                     duration: this._promptSettings[Keys.PROMPT_BLUR_ANIM_DURATION],
                     mode: Clutter.AnimationMode.EASE_OUT_QUAD,
@@ -270,7 +276,7 @@ export default class LockscreenExtension extends Extension {
             const radius = this._blurRadius;
             const brightness = radius ? this._blurBrightness : 1;
 
-            Object.values(this._wrapperActors).forEach(actor => {
+            this._wrapperActors.forEach(actor => {
                 actor.ease_property('@effects.lockscreen-extension-blur.radius', radius, {
                     duration: this._promptSettings[Keys.PROMPT_BLUR_ANIM_DURATION],
                     mode: Clutter.AnimationMode.EASE_OUT_QUAD,
@@ -283,7 +289,7 @@ export default class LockscreenExtension extends Extension {
         }
 
         if (this._promptSettings[Keys.PROMPT_GRAYSCALE]) {
-            Object.values(this._wrapperActors).forEach(actor => {
+            this._wrapperActors.forEach(actor => {
                 actor.ease_property('@effects.lockscreen-extension-desaturate.factor', 0.0, {
                     duration: this._promptSettings[Keys.PROMPT_BLUR_ANIM_DURATION],
                     mode: Clutter.AnimationMode.EASE_OUT_QUAD,
@@ -296,98 +302,50 @@ export default class LockscreenExtension extends Extension {
     }
 
     _handleMonitor(monitorIndex) {
-        let targetConnector = null;
-        const monitorManager = global.backend.get_monitor_manager();
-
-        for (let connector of Object.keys(this._windowActors)) {
-            const idx = monitorManager.get_monitor_for_connector(connector);
-            if (idx == monitorIndex) {
-                targetConnector = connector;
-                break;
-            }
-        }
-
-        if (!targetConnector) {
-            warn(`Actor not found for monitor ${monitorIndex}! Skipping...`);
-            return;
-        }
-
-        if (targetConnector in this._wrapperActors) {
-            warn(`Wrapper already exists for monitor ${targetConnector}, skipping`);
-            return;
-        }
-
         const isLastMonitor = monitorIndex === Main.layoutManager.monitors.length - 1;
         const monitor = Main.layoutManager.monitors[monitorIndex];
-        const windowActor = this._windowActors[targetConnector];
 
-        if (windowActor) {
-            const parent = windowActor.get_parent();
-            if (parent) parent.remove_child(windowActor);
+        const wrapper = new Clutter.Actor();
 
-            const wrapper = new Clutter.Actor();
-
-            Main.screenShield._dialog._backgroundGroup.add_child(wrapper);
-            Main.screenShield._dialog._backgroundGroup.set_child_above_sibling(wrapper, null);
-
-            wrapper.add_effect(new Shell.BlurEffect(this._blurEffect));
-
-            // Adding color desaturation effect if needed
-            if (this._promptSettings[Keys.PROMPT_GRAYSCALE]) {
-                wrapper.add_effect_with_name(
-                    'lockscreen-extension-desaturate',
-                    new Clutter.DesaturateEffect({ factor: 0.0 })
-                );
-            }
-
-            if (!this._backgroundCreated)
-                wrapper.opacity = 0;
-
-            wrapper.add_child(windowActor);
-            wrapper.set_child_above_sibling(windowActor, null);
-            wrapper.connectObject('destroy', () => {
-                const p = windowActor.get_parent();
-                if (p) p.remove_child(windowActor);
-                global.window_group.add_child(windowActor);
-                delete this._wrapperActors[targetConnector];
-            });
-
-            if (this._forceFullscreen) {
-                wrapper.set_position(0, 0);
-
-                const win = windowActor.get_meta_window();
-                win.move_to_monitor(monitorIndex);
-                win.make_fullscreen();
-
-            } else {
-                wrapper.set_position(monitor.x, monitor.y);
-                wrapper.set_size(monitor.width, monitor.height);
-                wrapper.set_clip_to_allocation(true);
-
-                // NOTE:
-                // This might look like an overkill,
-                // but you really need to aggressively position actors on any
-                // size/position change
-                const fixPositionAndScale = () => {
-                    windowActor.set_translation(
-                        -windowActor.x, -windowActor.y, 0
-                    );
-                    windowActor.set_pivot_point(0, 0);
-                    windowActor.set_scale(1, 1);
-                };
-                windowActor.connectObject('notify::x', fixPositionAndScale, this);
-                windowActor.connectObject('notify::y', fixPositionAndScale, this);
-                windowActor.connectObject('notify::width', fixPositionAndScale, this);
-                windowActor.connectObject('notify::height', fixPositionAndScale, this);
-
-                fixPositionAndScale();
-            }
-
-            this._wrapperActors[targetConnector] = wrapper;
-
-        } else {
-            warn(`No window actor for monitor ${targetConnector}, skipping`);
+        if (monitorIndex == 0) {
+            this._wrapperActors = [];
         }
+
+        //print(this._windowActor.get_width(), this._windowActor.get_height())
+        //print(this._window.get_frame_rect().width, this._window.get_frame_rect().height)
+
+        Main.screenShield._dialog._backgroundGroup.add_child(wrapper);
+        Main.screenShield._dialog._backgroundGroup.set_child_above_sibling(wrapper, null);
+
+        const cloneActor = new Clutter.Clone({
+            source: this._windowActor
+        });
+
+
+        wrapper.add_effect(new Shell.BlurEffect(this._blurEffect));
+
+        // Adding color desaturation effect if needed
+        if (this._promptSettings[Keys.PROMPT_GRAYSCALE]) {
+            wrapper.add_effect_with_name(
+                'lockscreen-extension-desaturate',
+                new Clutter.DesaturateEffect({ factor: 0.0 })
+            );
+        }
+
+        if (!this._backgroundCreated)
+            wrapper.opacity = 0;
+
+        //TODO: Position based on scaling mode (right now its just stretched)
+        wrapper.add_child(cloneActor);
+        wrapper.set_child_above_sibling(cloneActor, null);
+        this._wrapperActors.push(wrapper);
+
+        wrapper.set_position(monitor.x, monitor.y);
+        wrapper.set_size(monitor.width, monitor.height);
+        wrapper.set_clip_to_allocation(true);
+        
+        cloneActor.content_gravity = Clutter.ContentGravity.RESIZE_ASPECT;
+        cloneActor.set_size(monitor.width, monitor.height);
 
         if (!this._backgroundCreated && isLastMonitor) {
             this._initLoginManager();
@@ -399,7 +357,7 @@ export default class LockscreenExtension extends Extension {
     }
 
     _startAnimation() {
-        Object.values(this._wrapperActors).forEach(actor => actor.ease({
+        this._wrapperActors.forEach(actor => actor.ease({
             opacity: 255,
             duration: this._fadeInDuration,
             mode: Clutter.AnimationMode.EASE_IN_QUAD,
@@ -433,15 +391,12 @@ export default class LockscreenExtension extends Extension {
         this._tapAction?.disconnectObject(this);
 
         // Return all window actors to window_group before destroying
-        for (const windowActor of Object.values(this._windowActors)) {
-            const parent = windowActor.get_parent();
-            if (parent) parent.remove_child(windowActor);
+        const parent = this._windowActor.get_parent();
+        if (parent) parent.remove_child(this._windowActor);
             
-            windowActor.disconnectObject(this);
-            global.window_group.add_child(windowActor);
-            windowActor.hide();
-        }
-        this._windowActors = {};
+        this._windowActor.disconnectObject(this);
+        global.window_group.add_child(this._windowActor);
+        this._windowActor.hide();
 
         this._player?.destroy();
         this._player = null;
