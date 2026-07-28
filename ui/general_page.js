@@ -4,14 +4,11 @@ import Gtk from 'gi://Gtk';
 import GObject from 'gi://GObject';
 
 import { Keys } from '../enums.js';
-import { getShellVersion } from "../utils/shell_version_dbus.js";
 import { error } from '../utils/logging.js';
 
 export var GeneralPage = GObject.registerClass(
 class LLSGeneralPage extends Adw.PreferencesPage {
     _init(settings) {
-        this._shellVersion = getShellVersion();
-
         super._init({
             title: 'General',
             icon_name: 'preferences-system-symbolic',
@@ -23,33 +20,11 @@ class LLSGeneralPage extends Adw.PreferencesPage {
 
         const group = new Adw.PreferencesGroup();
         group.add(this._buildPathRow());
-
-        //NOTE: Maybe delete?
-        this._warningLabel = new Gtk.Label({
-            label: '⚠️ GIF wallpapers are not supported on GNOME 47 and earlier (you can force enable it in debug section)',
-            halign: Gtk.Align.FILL,
-            wrap: true,
-            margin_top: 10,
-        });
-        this._warningLabel.add_css_class('caption');
-        this._warningLabel.add_css_class('warning');
-        group.add(this._warningLabel);
-
-        this._updateWarningVisibility();
-        this._settings.connect(`changed::${Keys.DEBUG_FORCE_GIF_SUPPORT}`, () => {
-            this._updateWarningVisibility();
-        });
-
         group.add(this._buildScalingRow());
         group.add(this._buildVolumeRow());
         group.add(this._buildLoopRow());
         group.add(this._buildBatteryRow());
         this.add(group);
-    }
-
-    _updateWarningVisibility() {
-        this._forceGif = this._settings.get_boolean(Keys.DEBUG_FORCE_GIF_SUPPORT);
-        this._warningLabel.visible = this._shellVersion < 48 && !this._forceGif;
     }
 
     _buildScalingRow() {
@@ -128,30 +103,23 @@ class LLSGeneralPage extends Adw.PreferencesPage {
     _openFileDialog(row) {
         const filters = new Gio.ListStore({ item_type: Gtk.FileFilter });
 
-        if (this._shellVersion < 48 && !this._forceGif) {
-            const allFilter = new Gtk.FileFilter();
-            allFilter.set_name('Video files');
-            allFilter.add_mime_type('video/*');
-            filters.append(allFilter);
-        } else {
-            const allFilter = new Gtk.FileFilter();
-            allFilter.set_name('Video and GIF files');
-            allFilter.add_mime_type('video/*');
-            allFilter.add_mime_type('image/gif');
+        const allFilter = new Gtk.FileFilter();
+        allFilter.set_name('Video and GIF files');
+        allFilter.add_mime_type('video/*');
+        allFilter.add_mime_type('image/gif');
 
-            // Separate filters so the user can narrow down if needed.
-            const videoFilter = new Gtk.FileFilter();
-            videoFilter.set_name('Video files');
-            videoFilter.add_mime_type('video/*');
+        // Separate filters so the user can narrow down if needed.
+        const videoFilter = new Gtk.FileFilter();
+        videoFilter.set_name('Video files');
+        videoFilter.add_mime_type('video/*');
 
-            const gifFilter = new Gtk.FileFilter();
-            gifFilter.set_name('GIF images');
-            gifFilter.add_mime_type('image/gif');
+        const gifFilter = new Gtk.FileFilter();
+        gifFilter.set_name('GIF images');
+        gifFilter.add_mime_type('image/gif');
 
-            filters.append(allFilter);
-            filters.append(videoFilter);
-            filters.append(gifFilter);
-        }
+        filters.append(allFilter);
+        filters.append(videoFilter);
+        filters.append(gifFilter);
 
         const dialog = new Gtk.FileDialog({ title: 'Select Video or GIF File' });
         dialog.set_filters(filters);
