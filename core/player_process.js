@@ -59,7 +59,7 @@ export class PlayerProcess {
             '--vo=gpu',
             '--no-border',
             '--keep-open=yes',
-            '--background=none',
+            // '--background=none', //TODO: properly implement transparency support if possible
             '--osd-level=0',
             '--msg-level=all=no',
             '--no-terminal',
@@ -93,9 +93,6 @@ export class PlayerProcess {
                 // It is important to read the output back, 
                 // without this the socket stalls at some point
                 this._startReadLoop();
-                
-                // Immediately pausing the video once the socket is created
-                this._sendCommand('set_property', 'pause', 'yes');
             } catch (e) {
                 error(`PlayerProcess: failed to connect IPC even though socket exists: ${e}`);
             }
@@ -182,8 +179,9 @@ export class PlayerProcess {
                     this.h = data.data.h;
                 }
 
-                //NOTE: Once the file is loaded send command to retrieve video size
+                //NOTE: Once the file is loaded send command to pause it and retrieve video size
                 if (data.event == "file-loaded") {
+                    this._sendCommand('set_property', 'pause', 'yes');
                     this._sendCommand('get_property', 'video-params');
                 }
 
