@@ -133,7 +133,7 @@ export default class LockscreenExtension extends Extension {
             if (SHELL_VERSION > 48)
                 this._window.unmaximize()                
             else
-                this._window.unmaximize(undefined)
+                this._window.unmaximize(true)
 
             this._window.move_resize_frame(true, 0, 0, VIDEO_W, VIDEO_H)
 
