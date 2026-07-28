@@ -22,10 +22,6 @@ const MAX_DIALOG_INJECT_ATTEMPTS = 100;
 const DIALOG_INJECT_INTERVAL = 100;
 const WINDOW_TIMEOUT = 10000;
 
-//TODO: Use actual video size
-const VIDEO_W = 1920;
-const VIDEO_H = 1080;
-
 export default class LockscreenExtension extends Extension {
     enable() {
         this._resetLockState();
@@ -135,11 +131,6 @@ export default class LockscreenExtension extends Extension {
             else
                 this._window.unmaximize(true)
 
-            this._window.move_resize_frame(true, 0, 0, VIDEO_W, VIDEO_H)
-
-            //print(this._windowActor.get_width(), this._windowActor.get_height())
-            //print(this._window.get_frame_rect().width, this._window.get_frame_rect().height)
-            //print(this._window.resizeable)
 
             const parent = this._windowActor.get_parent();
             if (parent) parent.remove_child(this._windowActor);
@@ -158,7 +149,10 @@ export default class LockscreenExtension extends Extension {
         const dialog = Main.screenShield._dialog;
         const gtype = dialog._swipeTracker.constructor.$gtype;
 
-        if (!dialog) {
+        //TODO: 
+        // Maybe rewrite this part 
+        // Or better yet use signals when dialog is created/width is retrieved
+        if (!dialog || this._player.w == 0) {
             if (this._injectAttempts >= MAX_DIALOG_INJECT_ATTEMPTS) {
                 error(`_dialog never appeared after ${MAX_DIALOG_INJECT_ATTEMPTS} attempts, giving up`);
                 this._injectAttempts = 0;
@@ -307,6 +301,10 @@ export default class LockscreenExtension extends Extension {
     }
 
     _handleMonitor(monitorIndex) {
+        this._window.move_resize_frame(
+            true, 0, 0, this._player.w, this._player.h
+        );
+
         const isLastMonitor = monitorIndex === Main.layoutManager.monitors.length - 1;
         const monitor = Main.layoutManager.monitors[monitorIndex];
 
@@ -356,6 +354,9 @@ export default class LockscreenExtension extends Extension {
     }
 
     _applyScaling(cloneActor, targetW, targetH) {
+        const W = this._player.w
+        const H = this._player.h
+
         switch (this._scalingMode) {
             case ScalingMode.STRETCH: {
                 // Fill the box exactly, ignore aspect ratio
@@ -367,9 +368,9 @@ export default class LockscreenExtension extends Extension {
 
             case ScalingMode.FIT: {
                 // Preserve aspect ratio, letterboxed to fit entirely within the box
-                const scale = Math.min(targetW / VIDEO_W, targetH / VIDEO_H);
-                const w = VIDEO_W * scale;
-                const h = VIDEO_H * scale;
+                const scale = Math.min(targetW / W, targetH / H);
+                const w = W * scale;
+                const h = H * scale;
 
                 cloneActor.content_gravity = Clutter.ContentGravity.RESIZE_ASPECT;
                 cloneActor.set_size(w, h);
@@ -382,9 +383,9 @@ export default class LockscreenExtension extends Extension {
 
             case ScalingMode.COVER: {
                 // Preserve aspect ratio, scale up to fully cover the box, crop overflow
-                const scale = Math.max(targetW / VIDEO_W, targetH / VIDEO_H);
-                const w = VIDEO_W * scale;
-                const h = VIDEO_H * scale;
+                const scale = Math.max(targetW / W, targetH / H);
+                const w = W * scale;
+                const h = H * scale;
 
                 cloneActor.content_gravity = Clutter.ContentGravity.RESIZE_FILL;
                 cloneActor.set_size(w, h);

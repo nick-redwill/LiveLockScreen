@@ -34,6 +34,9 @@ export class PlayerProcess {
 
         this._writeQueue = [];
         this._writing = false;
+
+        this.w = 0;
+        this.h = 0;
     }
 
     run() {
@@ -112,7 +115,8 @@ export class PlayerProcess {
     }
 
     _sendCommand(...args) {
-        const payload = JSON.stringify({ command: args }) + '\n';
+        let r = Math.round(Math.random() * 1000); // Just random value for debug
+        const payload = JSON.stringify({ command: args, request_id: r }) + '\n';
         // We use queue to avoid race conditions
         this._writeQueue.push(payload);
         this._processWriteQueue();
@@ -124,7 +128,7 @@ export class PlayerProcess {
 
         this._writing = true;
         const payload = this._writeQueue.shift();
-        // print(`[ipc] sending @ ${Date.now()}: ${payload.trim()}`);
+        print(`[ipc] sending @ ${Date.now()}: ${payload.trim()}`);
 
         this._ipcOutStream.write_bytes_async(
             new GLib.Bytes(payload),
@@ -171,7 +175,19 @@ export class PlayerProcess {
                     return;
                 }
 
-                // print(`[ipc] <- ${line}`);
+                const data = JSON.parse(line);
+                //TODO: Add a callback
+                if (data.data && data.data.w && data.data.h) {
+                    this.w = data.data.w;
+                    this.h = data.data.h;
+                }
+
+                //NOTE: Once the file is loaded send command to retrieve video size
+                if (data.event == "file-loaded") {
+                    this._sendCommand('get_property', 'video-params');
+                }
+
+                print(`[ipc] <- ${line}`);
                 readNext(); // keep reading
             });
         };
