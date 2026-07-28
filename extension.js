@@ -9,7 +9,7 @@ import Shell from 'gi://Shell';
 import Clutter from 'gi://Clutter';
 import GObject from 'gi://GObject';
 
-import { Keys } from './enums.js';
+import { Keys, ScalingMode } from './enums.js';
 import { PlayerProcess } from './core/player_process.js';
 
 import { isOnBattery } from './utils/battery.js';
@@ -129,7 +129,12 @@ export default class LockscreenExtension extends Extension {
             this._window = win
             this._windowActor = win.get_compositor_private();
             
-            this._window.unmaximize()                
+            //FIXME: On gnome 48 and lower this functions accepts 1 argument
+            if (SHELL_VERSION > 48)
+                this._window.unmaximize()                
+            else
+                this._window.unmaximize(undefined)
+
             this._window.move_resize_frame(true, 0, 0, VIDEO_W, VIDEO_H)
 
             //print(this._windowActor.get_width(), this._windowActor.get_height())
@@ -311,16 +316,12 @@ export default class LockscreenExtension extends Extension {
             this._wrapperActors = [];
         }
 
-        //print(this._windowActor.get_width(), this._windowActor.get_height())
-        //print(this._window.get_frame_rect().width, this._window.get_frame_rect().height)
-
         Main.screenShield._dialog._backgroundGroup.add_child(wrapper);
         Main.screenShield._dialog._backgroundGroup.set_child_above_sibling(wrapper, null);
 
         const cloneActor = new Clutter.Clone({
             source: this._windowActor
         });
-
 
         wrapper.add_effect(new Shell.BlurEffect(this._blurEffect));
 
@@ -335,7 +336,6 @@ export default class LockscreenExtension extends Extension {
         if (!this._backgroundCreated)
             wrapper.opacity = 0;
 
-        //TODO: Position based on scaling mode (right now its just stretched)
         wrapper.add_child(cloneActor);
         wrapper.set_child_above_sibling(cloneActor, null);
         this._wrapperActors.push(wrapper);
@@ -344,8 +344,7 @@ export default class LockscreenExtension extends Extension {
         wrapper.set_size(monitor.width, monitor.height);
         wrapper.set_clip_to_allocation(true);
         
-        cloneActor.content_gravity = Clutter.ContentGravity.RESIZE_ASPECT;
-        cloneActor.set_size(monitor.width, monitor.height);
+        this._applyScaling(cloneActor, monitor.width, monitor.height);
 
         if (!this._backgroundCreated && isLastMonitor) {
             this._initLoginManager();
@@ -353,6 +352,52 @@ export default class LockscreenExtension extends Extension {
             this._player.play();
 
             this._backgroundCreated = true;
+        }
+    }
+
+    _applyScaling(cloneActor, targetW, targetH) {
+        switch (this._scalingMode) {
+            case ScalingMode.STRETCH: {
+                // Fill the box exactly, ignore aspect ratio
+                cloneActor.content_gravity = Clutter.ContentGravity.RESIZE_FILL;
+                cloneActor.set_size(targetW, targetH);
+                cloneActor.set_position(0, 0);
+                break;
+            }
+
+            case ScalingMode.FIT: {
+                // Preserve aspect ratio, letterboxed to fit entirely within the box
+                const scale = Math.min(targetW / VIDEO_W, targetH / VIDEO_H);
+                const w = VIDEO_W * scale;
+                const h = VIDEO_H * scale;
+
+                cloneActor.content_gravity = Clutter.ContentGravity.RESIZE_ASPECT;
+                cloneActor.set_size(w, h);
+                cloneActor.set_position(
+                    (targetW - w) / 2,
+                    (targetH - h) / 2
+                );
+                break;
+            }
+
+            case ScalingMode.COVER: {
+                // Preserve aspect ratio, scale up to fully cover the box, crop overflow
+                const scale = Math.max(targetW / VIDEO_W, targetH / VIDEO_H);
+                const w = VIDEO_W * scale;
+                const h = VIDEO_H * scale;
+
+                cloneActor.content_gravity = Clutter.ContentGravity.RESIZE_FILL;
+                cloneActor.set_size(w, h);
+                cloneActor.set_position(
+                    (targetW - w) / 2,
+                    (targetH - h) / 2
+                );
+                break;
+            }
+
+            default:
+                error(`_applyScaling: unknown scaling mode ${this._scalingMode}`);
+                break;
         }
     }
 
