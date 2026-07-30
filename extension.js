@@ -203,11 +203,19 @@ export default class LockscreenExtension extends Extension {
         );
 
         //NOTE: Replacing TapAction with a fresh one if exists (for gnome 48 and older)
-        this._tapAction = (SHELL_VERSION < 49) ? new Clutter.TapAction() : null;
-        if (this._tapAction) {
-            this._tapAction.connectObject(
-                'tap', dialog._showPrompt.bind(dialog), this
-            );
+        if (SHELL_VERSION < 49) {
+            const actions = dialog.get_actions();
+            const tapAction = actions.find(a => {
+                //HACK: Maybe not the most beautiful solution, but works
+                return a.constructor.name.includes('TapAction')
+            });
+            if (tapAction) {
+                dialog.remove_action(tapAction);
+                
+                let newAction = new Clutter.TapAction();
+                newAction.connectObject('tap', dialog._showPrompt.bind(dialog), this);
+                dialog.add_action(newAction);
+            } 
         }
 
         dialog._updateBackgrounds();
