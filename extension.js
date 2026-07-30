@@ -13,8 +13,6 @@ import { Keys, ScalingMode } from './enums.js';
 import { PlayerProcess } from './core/player_process.js';
 
 import { isOnBattery } from './utils/battery.js';
-import { isGtk4PaintableSinkAvailable } from './utils/check_dependencies.js';
-import { sendErrorNotification } from './utils/notifications.js';
 import { SHELL_VERSION } from './utils/shell_version.js';
 import { warn, error } from './utils/logging.js';
 
@@ -444,13 +442,9 @@ export default class LockscreenExtension extends Extension {
         Main.screenShield._dialog._swipeTracker?.disconnectObject(this);
         this._tapAction?.disconnectObject(this);
 
-        // Return all window actors to window_group before destroying
-        const parent = this._windowActor.get_parent();
-        if (parent) parent.remove_child(this._windowActor);
-            
-        this._windowActor.disconnectObject(this);
-        global.window_group.add_child(this._windowActor);
-        this._windowActor.hide();
+        if (this._windowActor) {
+            this._windowActor.hide();
+        }
 
         this._player?.destroy();
         this._player = null;

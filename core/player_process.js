@@ -28,6 +28,7 @@ export class PlayerProcess {
 
         this._ipcConnection = null;
         this._ipcOutStream = null;
+        this._shuttingDown = false;
 
         this._slideTimeoutId = null;
         this._currentVolume = volume;
@@ -41,14 +42,7 @@ export class PlayerProcess {
 
     run() {
         //NOTE: If socket already exists cleaning it up
-        try {
-            const file = Gio.File.new_for_path(this._socketPath);
-            if (file.query_exists(null))
-                file.delete(null);
-        } catch (e) {
-            error(`PlayerProcess: failed to clean up stale socket: ${e}`);
-            return;
-        }
+        this._removeSocketFile()
 
         const args = [
             'mpv', 
@@ -82,9 +76,18 @@ export class PlayerProcess {
         this._waitForSocketAndConnect(this._socketPath);
     }
 
+    _removeSocketFile() {
+        try {
+            const file = Gio.File.new_for_path(this._socketPath);
+            if (file.query_exists(null))
+                file.delete(null);
+        } catch (e) {
+            error(`PlayerProcess: failed to remove socket file on cleanup: ${e}`);
+        }
+    }
+
     _waitForSocketAndConnect(socketPath, attemptsLeft = 100) {
         const file = Gio.File.new_for_path(socketPath);
-
         if (file.query_exists(null)) {
             try {
                 this._connectIpc(socketPath);
@@ -125,7 +128,7 @@ export class PlayerProcess {
 
         this._writing = true;
         const payload = this._writeQueue.shift();
-        print(`[ipc] sending @ ${Date.now()}: ${payload.trim()}`);
+        //print(`[ipc] sending @ ${Date.now()}: ${payload.trim()}`);
 
         this._ipcOutStream.write_bytes_async(
             new GLib.Bytes(payload),
@@ -148,6 +151,7 @@ export class PlayerProcess {
     }
 
     _reconnectIpc() {
+        if (this._shuttingDown) return;
         this._cleanupIpc()
         this._waitForSocketAndConnect(this._socketPath);
     }
@@ -161,6 +165,8 @@ export class PlayerProcess {
                 try {
                     [line] = stream.read_line_finish_utf8(result);
                 } catch (e) {
+                    if (this._shuttingDown) return;
+
                     error(`[ipc] read error: ${e}`);
                     this._reconnectIpc();
                     return;
@@ -185,7 +191,7 @@ export class PlayerProcess {
                     this._sendCommand('get_property', 'video-params');
                 }
 
-                print(`[ipc] <- ${line}`);
+                // print(`[ipc] <- ${line}`);
                 readNext(); // keep reading
             });
         };
@@ -293,6 +299,8 @@ export class PlayerProcess {
     get window() { return this._window; }
 
     destroy() {
+        this._shuttingDown = true;
+        
         if (this._timeoutId !== null) {
             GLib.source_remove(this._timeoutId);
             this._timeoutId = null;
@@ -317,8 +325,10 @@ export class PlayerProcess {
         // proc.send_signal sometimes doesnt do the job
         // thats why we use window.kill too
         if (this._window) {
-            this._window.kill(true);
-            this._window = null;
+           this._window.kill();
+           this._window = null;
         }
+
+        this._removeSocketFile();
     }
 }
