@@ -354,14 +354,24 @@ export default class LockscreenExtension extends Extension {
     }
 
     _applyScaling(cloneActor, targetW, targetH) {
-        const W = this._player.w
-        const H = this._player.h
+        const W = this._player.w;
+        const H = this._player.h;
+
+        // Keep the clone at native source size always; scaling is done via
+        // set_scale() (transform-based) rather than set_size()
+
+        // since set_size()-based scaling triggers a GNOME 48 repaint bug where
+        // the clone's box only partially updates when scaled up from a smaller
+        // source.set_scale() does not hit this bug.
+        cloneActor.set_size(W, H);
 
         switch (this._scalingMode) {
             case ScalingMode.STRETCH: {
                 // Fill the box exactly, ignore aspect ratio
-                cloneActor.content_gravity = Clutter.ContentGravity.RESIZE_FILL;
-                cloneActor.set_size(targetW, targetH);
+                const scaleX = targetW / W;
+                const scaleY = targetH / H;
+
+                cloneActor.set_scale(scaleX, scaleY);
                 cloneActor.set_position(0, 0);
                 break;
             }
@@ -372,8 +382,7 @@ export default class LockscreenExtension extends Extension {
                 const w = W * scale;
                 const h = H * scale;
 
-                cloneActor.content_gravity = Clutter.ContentGravity.RESIZE_ASPECT;
-                cloneActor.set_size(w, h);
+                cloneActor.set_scale(scale, scale);
                 cloneActor.set_position(
                     (targetW - w) / 2,
                     (targetH - h) / 2
@@ -387,8 +396,7 @@ export default class LockscreenExtension extends Extension {
                 const w = W * scale;
                 const h = H * scale;
 
-                cloneActor.content_gravity = Clutter.ContentGravity.RESIZE_FILL;
-                cloneActor.set_size(w, h);
+                cloneActor.set_scale(scale, scale);
                 cloneActor.set_position(
                     (targetW - w) / 2,
                     (targetH - h) / 2
