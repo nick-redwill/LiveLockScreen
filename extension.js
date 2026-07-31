@@ -175,6 +175,8 @@ export default class LockscreenExtension extends Extension {
                 };
             }
         );
+
+        this._connectFingerprintAuth(dialog);
         
         // Removing the existing signal to use our custom one
         const swipeSignalId = GObject.signal_lookup('end', gtype);
@@ -208,6 +210,35 @@ export default class LockscreenExtension extends Extension {
         }
 
         dialog._updateBackgrounds();
+    }
+
+    _connectFingerprintAuth(dialog) {
+        const authPrompt = dialog._authPrompt;
+        if (!authPrompt) {
+            warn('AuthPrompt not available, fingerprint detection skipped');
+            return;
+        }
+
+        // When a fingerprint verification message is shown (e.g. "Place your finger")
+        // treat it as a prompt being shown so blur/pause effects apply
+        authPrompt.connectObject(
+            'next', () => {
+                this._onPromptShow();
+            },
+            this
+        );
+
+        // Override _onVerificationComplete to detect successful fingerprint unlock
+        this._injectionManager.overrideMethod(
+            dialog, '_onVerificationComplete',
+            (original) => {
+                const self = this;
+                return function(...args) {
+                    self._onPromptShow();
+                    original.call(this, ...args);
+                };
+            }
+        );
     }
 
     _injectCreateBackground() {
@@ -430,6 +461,7 @@ export default class LockscreenExtension extends Extension {
         this._injectAttempts = 0;
 
         Main.screenShield._dialog._swipeTracker?.disconnectObject(this);
+        Main.screenShield._dialog._authPrompt?.disconnectObject(this);
         this._tapAction?.disconnectObject(this);
 
         // Return all window actors to window_group before destroying
