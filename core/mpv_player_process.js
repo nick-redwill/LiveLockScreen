@@ -3,15 +3,13 @@ import GLib from 'gi://GLib';
 
 import { error } from '../utils/logging.js';
 
-export class PlayerProcess {
+export class MpvPlayerProcess {
     constructor({ 
-        playerPath, videoPath, scalingMode, loop, volume, 
+        videoPath, scalingMode, loop, volume, 
         useVideorate = false, framerate, 
-        colorAccurate = true //NOTE: Redundant
     }) {
         this._socketPath = '/tmp/lls-mpv.sock';
 
-        this._playerPath = playerPath;
         this._videoPath = videoPath;
         this._scalingMode = scalingMode;
         this._loop = loop;
@@ -40,9 +38,8 @@ export class PlayerProcess {
         this.h = 0;
     }
 
-    run() {
-        //NOTE: If socket already exists cleaning it up
-        this._removeSocketFile()
+    async run() {
+        this._removeSocketFile();
 
         const args = [
             'mpv', 
@@ -50,21 +47,20 @@ export class PlayerProcess {
             this._videoPath,
             '--keepaspect=no',
             '--hwdec=auto',
-            '--vo=gpu',
+            '--vo=gpu-next',
             '--no-border',
             '--keep-open=yes',
-            // '--background=none', //TODO: properly implement transparency support if possible
             '--osd-level=0',
             '--msg-level=all=no',
             '--no-terminal',
             `--volume=${Math.round(this._volume * 100)}`
         ];
+
         if (this._loop)
             args.push('--loop');
-        
-        if (this._useVideorate) {
-            args.push(`--vf=fps=${this._framerate}`)
-        }
+
+        if (this._useVideorate)
+            args.push(`--vf=fps=${this._framerate}`);
 
         this._proc = Gio.Subprocess.new(
             args, 
@@ -72,7 +68,6 @@ export class PlayerProcess {
         );
         this._pid = parseInt(this._proc.get_identifier());
 
-        //NOTE: Socket is created asyncronously, so we should wait until it exists
         this._waitForSocketAndConnect(this._socketPath);
     }
 
@@ -82,10 +77,11 @@ export class PlayerProcess {
             if (file.query_exists(null))
                 file.delete(null);
         } catch (e) {
-            error(`PlayerProcess: failed to remove socket file on cleanup: ${e}`);
+            error(`MpvPlayerProcess: failed to remove socket file on cleanup: ${e}`);
         }
     }
 
+    //TODO: Convert into promise-based function too
     _waitForSocketAndConnect(socketPath, attemptsLeft = 100) {
         const file = Gio.File.new_for_path(socketPath);
         if (file.query_exists(null)) {
@@ -97,13 +93,13 @@ export class PlayerProcess {
                 // without this the socket stalls at some point
                 this._startReadLoop();
             } catch (e) {
-                error(`PlayerProcess: failed to connect IPC even though socket exists: ${e}`);
+                error(`MpvPlayerProcess: failed to connect IPC even though socket exists: ${e}`);
             }
             return;
         }
 
         if (attemptsLeft <= 0) {
-            error('PlayerProcess: timed out waiting for mpv IPC socket to appear');
+            error('MpvPlayerProcess: timed out waiting for mpv IPC socket to appear');
             return;
         }
 
@@ -199,6 +195,7 @@ export class PlayerProcess {
         readNext();
     }
 
+    //TODO: Convert into promise-based function too
     _connectIpc(socketPath) {
         const address = new Gio.UnixSocketAddress({ path: socketPath });
         const client = new Gio.SocketClient();
@@ -272,26 +269,41 @@ export class PlayerProcess {
         });
     }
 
-    waitForWindow(timeoutMs, callback, errback) {
-        this._mapId = global.window_manager.connectObject('map', (_wm, windowActor) => {
-            const win = windowActor.get_meta_window();
-            if (win.get_pid() !== this._pid) return;
+    async waitForWindow(timeoutMs) {
+        return new Promise((resolve, reject) => {
+            this._mapId = global.window_manager.connectObject(
+                'map',
+                (_wm, windowActor) => {
+                    const win = windowActor.get_meta_window();
 
-            this._window = win;
-            callback?.(win);
+                    if (win.get_pid() !== this._pid)
+                        return;
 
-            global.window_manager.disconnectObject(this);
-            if (this._timeoutId !== null) {
-                GLib.source_remove(this._timeoutId);
-                this._timeoutId = null;
-            }
-        }, this);
+                    this._window = win;
+                    resolve(win);
 
-        this._timeoutId = GLib.timeout_add(GLib.PRIORITY_DEFAULT, timeoutMs, () => {
-            global.window_manager.disconnectObject(this);
-            this._timeoutId = null;
-            errback?.(`timed out waiting for window`);
-            return GLib.SOURCE_REMOVE;
+                    global.window_manager.disconnectObject(this);
+
+                    if (this._timeoutId !== null) {
+                        GLib.source_remove(this._timeoutId);
+                        this._timeoutId = null;
+                    }
+                },
+                this
+            );
+
+            this._timeoutId = GLib.timeout_add(
+                GLib.PRIORITY_DEFAULT,
+                timeoutMs,
+                () => {
+                    global.window_manager.disconnectObject(this);
+                    this._timeoutId = null;
+
+                    reject(new Error('Timed out waiting for window'));
+
+                    return GLib.SOURCE_REMOVE;
+                }
+            );
         });
     }
 

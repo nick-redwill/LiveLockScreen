@@ -10,11 +10,12 @@ import Clutter from 'gi://Clutter';
 import GObject from 'gi://GObject';
 
 import { Keys, ScalingMode } from './enums.js';
-import { PlayerProcess } from './core/player_process.js';
+import { MpvPlayerProcess } from './core/mpv_player_process.js';
 
 import { isOnBattery } from './utils/battery.js';
 import { SHELL_VERSION } from './utils/shell_version.js';
 import { warn, error } from './utils/logging.js';
+import { sleep } from './utils/base.js';
 
 const MAX_DIALOG_INJECT_ATTEMPTS = 100;
 const DIALOG_INJECT_INTERVAL = 100;
@@ -24,7 +25,11 @@ export default class LockscreenExtension extends Extension {
     enable() {
         this._resetLockState();
         this._settings = this.getSettings();
-        this._setupForLock();
+
+        this._setupLock().catch(err => {
+            error(err);
+            this.disable();
+        });
     }
 
     _resetLockState() {
@@ -43,7 +48,7 @@ export default class LockscreenExtension extends Extension {
         this._blurEffectTimeoutId = 0;
     }
 
-    _setupForLock() {
+    async _setupLock() {
         const disableOnBatter = this._settings.get_boolean(Keys.DISABLE_ON_BATTERY);
         if (disableOnBatter && isOnBattery()) {
             warn('Skipping on battery');
@@ -56,17 +61,31 @@ export default class LockscreenExtension extends Extension {
             return;
         }
 
-        this._fadeInDuration  = this._settings.get_int(Keys.FADE_IN_DURATION);
-        this._scalingMode = this._settings.get_int(Keys.SCALING_MODE);
-        this._blurRadius = this._settings.get_int(Keys.BLUR_RADIUS);
-        this._blurBrightness = this._settings.get_double(Keys.BLUR_BRIGHTNESS);
-        this._forceFullscreen = this._settings.get_boolean(Keys.DEBUG_FORCE_FULLSCREEN);
-
         const volume = this._settings.get_int(Keys.AUDIO_VOLUME) / 100;
         const loop = this._settings.get_boolean(Keys.LOOPED);
         const useVideorate = this._settings.get_boolean(Keys.USE_VIDEORATE);
         const framerate = this._settings.get_int(Keys.FRAMERATE);
         const colorAccurate = this._settings.get_boolean(Keys.DEBUG_USE_COLOR_ACCURATE);
+
+        this._player = new MpvPlayerProcess({
+            videoPath,
+            scalingMode: this._scalingMode,
+            loop,
+            volume,
+            useVideorate,
+            framerate,
+        });
+
+        await this._player.run();
+        await this._onPlayerInit();
+    }
+
+    async _onPlayerInit() {
+        this._fadeInDuration  = this._settings.get_int(Keys.FADE_IN_DURATION);
+        this._scalingMode = this._settings.get_int(Keys.SCALING_MODE);
+        this._blurRadius = this._settings.get_int(Keys.BLUR_RADIUS);
+        this._blurBrightness = this._settings.get_double(Keys.BLUR_BRIGHTNESS);
+        this._forceFullscreen = this._settings.get_boolean(Keys.DEBUG_FORCE_FULLSCREEN);
 
         this._promptSettings = {
             [Keys.PROMPT_PAUSE]:              this._settings.get_boolean(Keys.PROMPT_PAUSE),
@@ -86,25 +105,6 @@ export default class LockscreenExtension extends Extension {
             brightness: this._blurBrightness,
         };
 
-        this._player = new PlayerProcess({
-            playerPath: this.path + '/external/run.js',
-            videoPath,
-            scalingMode: this._scalingMode,
-            loop,
-            volume,
-            useVideorate,
-            framerate,
-            colorAccurate: colorAccurate
-        });
-
-        try {
-            this._player.run();
-        } catch (e) {
-            error('Failed to run video player! Falling back...' + e);
-            this._player = null;
-            return;
-        }
-
         // Temporarily hide all animations for windows
         this._injectionManager = new InjectionManager();
         this._injectionManager.overrideMethod(
@@ -117,8 +117,8 @@ export default class LockscreenExtension extends Extension {
             }
         );
 
-        this._player.waitForWindow(WINDOW_TIMEOUT, (win) => {
-            print("Window intercepted")
+        try {
+            const win = await this._player.waitForWindow(WINDOW_TIMEOUT); 
 
             this._window = win
             this._windowActor = win.get_compositor_private();
@@ -129,7 +129,6 @@ export default class LockscreenExtension extends Extension {
             else
                 this._window.unmaximize(true)
 
-
             const parent = this._windowActor.get_parent();
             if (parent) parent.remove_child(this._windowActor);
 
@@ -137,35 +136,41 @@ export default class LockscreenExtension extends Extension {
             global.stage.set_child_below_sibling(this._windowActor, null);
             this._windowActor.opacity = 0;
 
-            this._injectIntoDialog();
-        }, (err) => {
-            error(`Unable to intercept all windows: ${err}`);
-        })
+            await this._injectIntoDialog();
+        } catch (err) {
+            error(err);
+        }
     }
 
-    _injectIntoDialog() {
-        const dialog = Main.screenShield._dialog;
-        const gtype = dialog._swipeTracker.constructor.$gtype;
-
-        //TODO: 
-        // Maybe rewrite this part 
-        // Or better yet use signals when dialog is created/width is retrieved
-        if (!dialog || this._player.w == 0) {
+    async _waitForDialog() {
+        while (!Main.screenShield._dialog || this._player.w === 0) {
             if (this._injectAttempts >= MAX_DIALOG_INJECT_ATTEMPTS) {
-                error(`_dialog never appeared after ${MAX_DIALOG_INJECT_ATTEMPTS} attempts, giving up`);
-                this._injectAttempts = 0;
-                return;
+                throw new Error(
+                    `_dialog never appeared after ${MAX_DIALOG_INJECT_ATTEMPTS} attempts`
+                );
             }
+
             this._injectAttempts++;
-            this._injectRetryId = GLib.timeout_add(GLib.PRIORITY_DEFAULT, DIALOG_INJECT_INTERVAL, () => {
-                this._injectRetryId = 0;
-                this._injectIntoDialog();
-                return GLib.SOURCE_REMOVE;
-            });
-            return;
+            await sleep(DIALOG_INJECT_INTERVAL);
         }
 
         this._injectAttempts = 0;
+
+        return Main.screenShield._dialog;
+    }
+
+    async _injectIntoDialog() {
+        let dialog;
+
+        try {
+            dialog = await this._waitForDialog();
+        } catch (e) {
+            error(e.message);
+            return;
+        }
+
+        const gtype = dialog._swipeTracker.constructor.$gtype;
+
         this._injectCreateBackground();
 
         this._injectionManager.overrideMethod(
