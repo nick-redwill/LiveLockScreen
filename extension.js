@@ -14,7 +14,7 @@ import { MpvPlayerProcess } from './core/mpv_player_process.js';
 
 import { isOnBattery } from './utils/battery.js';
 import { SHELL_VERSION } from './utils/shell_version.js';
-import { warn, error } from './utils/logging.js';
+import { logWarn, logError } from './utils/logging.js';
 import { sleep } from './utils/base.js';
 
 const MAX_DIALOG_INJECT_ATTEMPTS = 100;
@@ -26,8 +26,9 @@ export default class LockscreenExtension extends Extension {
         this._resetLockState();
         this._settings = this.getSettings();
 
+        //NOTE: Global error handler w/ cleanup
         this._setupLock().catch(err => {
-            error(err);
+            logError(err);
             this.disable();
         });
     }
@@ -49,15 +50,15 @@ export default class LockscreenExtension extends Extension {
     }
 
     async _setupLock() {
-        const disableOnBatter = this._settings.get_boolean(Keys.DISABLE_ON_BATTERY);
-        if (disableOnBatter && isOnBattery()) {
-            warn('Skipping on battery');
-            return;
-        }
-
         const videoPath = this._settings.get_string(Keys.VIDEO_PATH);
         if (!videoPath) {
-            warn('Video not set, falling back');
+            logWarn('Video not set, falling back');
+            return;
+        }
+        
+        const disableOnBatter = this._settings.get_boolean(Keys.DISABLE_ON_BATTERY);
+        if (disableOnBatter && await isOnBattery()) {
+            logWarn('Skipping on battery');
             return;
         }
 
@@ -117,32 +118,28 @@ export default class LockscreenExtension extends Extension {
             }
         );
 
-        try {
-            const win = await this._player.waitForWindow(WINDOW_TIMEOUT); 
+        const win = await this._player.waitForWindow(WINDOW_TIMEOUT); 
 
-            this._window = win
-            this._windowActor = win.get_compositor_private();
-            
-            //FIXME: On gnome 48 and lower this functions accepts 1 argument
-            if (SHELL_VERSION > 48)
-                this._window.unmaximize()                
-            else
-                this._window.unmaximize(true)
+        this._window = win
+        this._windowActor = win.get_compositor_private();
+        
+        //NOTE: On gnome 48 and lower this functions accepts 1 argument
+        if (SHELL_VERSION > 48)
+            this._window.unmaximize()                
+        else
+            this._window.unmaximize(true)
 
-            const parent = this._windowActor.get_parent();
-            if (parent) parent.remove_child(this._windowActor);
+        const parent = this._windowActor.get_parent();
+        if (parent) parent.remove_child(this._windowActor);
 
-            global.stage.add_child(this._windowActor);
-            global.stage.set_child_below_sibling(this._windowActor, null);
-            this._windowActor.opacity = 0;
+        global.stage.add_child(this._windowActor);
+        global.stage.set_child_below_sibling(this._windowActor, null);
+        this._windowActor.opacity = 0;
 
-            await this._injectIntoDialog();
-        } catch (err) {
-            error(err);
-        }
+        await this._injectIntoDialog();
     }
 
-    async _waitForDialog() {
+    async _waitForFullLoad() {
         while (!Main.screenShield._dialog || this._player.w === 0) {
             if (this._injectAttempts >= MAX_DIALOG_INJECT_ATTEMPTS) {
                 throw new Error(
@@ -160,19 +157,19 @@ export default class LockscreenExtension extends Extension {
     }
 
     async _injectIntoDialog() {
-        let dialog;
+        let dialog = await this._waitForFullLoad();
 
-        try {
-            dialog = await this._waitForDialog();
-        } catch (e) {
-            error(e.message);
-            return;
-        }
 
-        const gtype = dialog._swipeTracker.constructor.$gtype;
-
-        this._injectCreateBackground();
-
+        this._injectionManager.overrideMethod(
+            dialog, '_createBackground',
+            (original) => {
+                const self = this;
+                return function(monitorIndex) {
+                    original.call(this, monitorIndex);                    
+                    self._handleMonitor(monitorIndex);
+                };
+            }
+        );
         this._injectionManager.overrideMethod(
             dialog, '_showPrompt',
             (original) => {
@@ -183,19 +180,6 @@ export default class LockscreenExtension extends Extension {
                 };
             }
         );
-        
-        // Removing the existing signal to use our custom one
-        const swipeSignalId = GObject.signal_lookup('end', gtype);
-        dialog._swipeTracker.disconnect(swipeSignalId);
-
-        dialog._swipeTracker.connectObject('end', (...args) => {
-            dialog._swipeEnd(...args);
-            if (dialog._activePage == dialog._clock)
-                this._onPromptHide();
-            else
-                this._onPromptShow();
-        }, this);
-
         this._injectionManager.overrideMethod(
             dialog, '_showClock',
             (original) => {
@@ -206,6 +190,19 @@ export default class LockscreenExtension extends Extension {
                 };
             }
         );
+        
+        // Removing the existing signal to use our custom one
+        const gtype = dialog._swipeTracker.constructor.$gtype;
+        const swipeSignalId = GObject.signal_lookup('end', gtype);
+        dialog._swipeTracker.disconnect(swipeSignalId);
+
+        dialog._swipeTracker.connectObject('end', (...args) => {
+            dialog._swipeEnd(...args);
+            if (dialog._activePage == dialog._clock)
+                this._onPromptHide();
+            else
+                this._onPromptShow();
+        }, this);
 
         //NOTE: Replacing TapAction with a fresh one if exists (for gnome 48 and older)
         if (SHELL_VERSION < 49) {
@@ -225,20 +222,7 @@ export default class LockscreenExtension extends Extension {
 
         dialog._updateBackgrounds();
     }
-
-    _injectCreateBackground() {
-        this._injectionManager.overrideMethod(
-            Main.screenShield._dialog, '_createBackground',
-            (original) => {
-                const self = this;
-                return function(monitorIndex) {
-                    original.call(this, monitorIndex);                    
-                    self._handleMonitor(monitorIndex);
-                };
-            }
-        );
-    }
-
+    
     _onPromptShow() {
         if (this._promptShown) return;
         this._promptShown = true;
@@ -400,8 +384,7 @@ export default class LockscreenExtension extends Extension {
                 );
                 break;
             }
-
-            case ScalingMode.COVER: {
+            default: {
                 // Preserve aspect ratio, scale up to fully cover the box, crop overflow
                 const scale = Math.max(targetW / W, targetH / H);
                 const w = W * scale;
@@ -414,10 +397,6 @@ export default class LockscreenExtension extends Extension {
                 );
                 break;
             }
-
-            default:
-                error(`_applyScaling: unknown scaling mode ${this._scalingMode}`);
-                break;
         }
     }
 

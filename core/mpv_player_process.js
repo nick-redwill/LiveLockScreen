@@ -1,7 +1,17 @@
 import Gio from 'gi://Gio';
 import GLib from 'gi://GLib';
 
-import { error } from '../utils/logging.js';
+import { logError, logWarn } from '../utils/logging.js';
+import { sleep } from '../utils/base.js';
+
+const logErrorMpv = (msg) => logError(`MpvPlayerProcess: ${msg}`);
+const logWarnMpv = (msg) => logWarn(`MpvPlayerProcess: ${msg}`);
+
+const MpvError = (msg) => new Error(`MpvPlayerProcess: ${msg}`);
+
+Gio._promisify(Gio.SocketClient.prototype, 'connect_async', 'connect_finish');
+Gio._promisify(Gio.DataInputStream.prototype, 'read_line_async', 'read_line_finish');
+Gio._promisify(Gio.OutputStream.prototype, 'write_bytes_async', 'write_bytes_finish');
 
 export class MpvPlayerProcess {
     constructor({ 
@@ -25,8 +35,10 @@ export class MpvPlayerProcess {
         this._timeoutId = null;
 
         this._ipcConnection = null;
+        this._ipcInStream = null;
         this._ipcOutStream = null;
         this._shuttingDown = false;
+        this._reconnecting = false;
 
         this._slideTimeoutId = null;
         this._currentVolume = volume;
@@ -68,7 +80,7 @@ export class MpvPlayerProcess {
         );
         this._pid = parseInt(this._proc.get_identifier());
 
-        this._waitForSocketAndConnect(this._socketPath);
+        await this._waitForSocketAndConnect(this._socketPath);
     }
 
     _removeSocketFile() {
@@ -77,135 +89,128 @@ export class MpvPlayerProcess {
             if (file.query_exists(null))
                 file.delete(null);
         } catch (e) {
-            error(`MpvPlayerProcess: failed to remove socket file on cleanup: ${e}`);
+            logErrorMpv(`failed to remove socket file on cleanup: ${e}`);
         }
     }
 
-    //TODO: Convert into promise-based function too
-    _waitForSocketAndConnect(socketPath, attemptsLeft = 100) {
+    async _waitForSocketAndConnect(socketPath) {
+        const MAX_ATTEMPTS = 100;
         const file = Gio.File.new_for_path(socketPath);
-        if (file.query_exists(null)) {
-            try {
-                this._connectIpc(socketPath);
 
-                // NOTE: 
-                // It is important to read the output back, 
-                // without this the socket stalls at some point
-                this._startReadLoop();
-            } catch (e) {
-                error(`MpvPlayerProcess: failed to connect IPC even though socket exists: ${e}`);
+        for (let i = 0; i < MAX_ATTEMPTS; i++) {
+            if (this._shuttingDown) return;
+
+            if (file.query_exists(null)) {
+                await this._connectIpc(socketPath);
+                this._startReadLoop().catch(err => logErrorMpv(
+                    `read loop crashed: ${err}`
+                ));
+                return
             }
-            return;
-        }
 
-        if (attemptsLeft <= 0) {
-            error('MpvPlayerProcess: timed out waiting for mpv IPC socket to appear');
-            return;
+            await sleep(50);
         }
-
-        // Repeat the connection check every 50 ms
-        GLib.timeout_add(GLib.PRIORITY_DEFAULT, 50, () => {
-            this._waitForSocketAndConnect(socketPath, attemptsLeft - 1);
-            return GLib.SOURCE_REMOVE;
-        });
+        throw new MpvError('timed out waiting for mpv IPC socket to appear');
     }
 
-    _sendCommand(...args) {
+    _queueCommand(...args) {
         let r = Math.round(Math.random() * 1000); // Just random value for debug
         const payload = JSON.stringify({ command: args, request_id: r }) + '\n';
         // We use queue to avoid race conditions
         this._writeQueue.push(payload);
-        this._processWriteQueue();
+        this._processWriteQueue().catch(err => logErrorMpv(
+            `write queue failed: ${err}`
+        ));
     }
 
-    _processWriteQueue() {
+    async _processWriteQueue() {
         if (this._writing || this._writeQueue.length === 0 || !this._ipcOutStream)
             return;
 
         this._writing = true;
         const payload = this._writeQueue.shift();
-        //print(`[ipc] sending @ ${Date.now()}: ${payload.trim()}`);
 
-        this._ipcOutStream.write_bytes_async(
-            new GLib.Bytes(payload),
-            GLib.PRIORITY_DEFAULT,
-            null,
-            (stream, result) => {
-                this._writing = false;
+        try {
+            await this._ipcOutStream.write_bytes_async(
+                new GLib.Bytes(payload),
+                GLib.PRIORITY_DEFAULT,
+                null
+            );
+        } catch (e) {
+            this._writing = false;
+            logErrorMpv(`IPC write failed: ${e}`);
+            this._reconnectIpc();
+            return;
+        }
 
-                try {
-                    stream.write_bytes_finish(result);
-                } catch (e) {
-                    error(`PlayerProcess: IPC write failed: ${e}`);
-                    this._reconnectIpc();
-                    return;
-                }
-
-                this._processWriteQueue(); // send next queued command, if any
-            }
-        );
+        this._writing = false;
+        this._processWriteQueue(); // send next queued command, if any
     }
 
-    _reconnectIpc() {
-        if (this._shuttingDown) return;
-        this._cleanupIpc()
-        this._waitForSocketAndConnect(this._socketPath);
-    }
-
-    _startReadLoop() {
-        const readNext = () => {
-            if (!this._ipcInStream) return;
-
-            this._ipcInStream.read_line_async(GLib.PRIORITY_DEFAULT, null, (stream, result) => {
-                let line;
-                try {
-                    [line] = stream.read_line_finish_utf8(result);
-                } catch (e) {
-                    if (this._shuttingDown) return;
-
-                    error(`[ipc] read error: ${e}`);
-                    this._reconnectIpc();
-                    return;
-                }
-
-                if (line === null) {
-                    error('[ipc] connection closed by mpv (EOF)');
-                    this._reconnectIpc();
-                    return;
-                }
-
-                const data = JSON.parse(line);
-                //TODO: Add a callback
-                if (data.data && data.data.w && data.data.h) {
-                    this.w = data.data.w;
-                    this.h = data.data.h;
-                }
-
-                //NOTE: Once the file is loaded send command to pause it and retrieve video size
-                if (data.event == "file-loaded") {
-                    this._sendCommand('set_property', 'pause', 'yes');
-                    this._sendCommand('get_property', 'video-params');
-                }
-
-                // print(`[ipc] <- ${line}`);
-                readNext(); // keep reading
-            });
-        };
-
-        readNext();
-    }
-
-    //TODO: Convert into promise-based function too
-    _connectIpc(socketPath) {
+    async _connectIpc(socketPath) {
         const address = new Gio.UnixSocketAddress({ path: socketPath });
         const client = new Gio.SocketClient();
-        
-        //TODO: Maybe rewrite to use async connection?
-        this._ipcConnection = client.connect(address, null);
+
+        this._ipcConnection = await client.connect_async(address, null);
         this._ipcOutStream = this._ipcConnection.get_output_stream();
         this._ipcInStream = new Gio.DataInputStream({
             base_stream: this._ipcConnection.get_input_stream(),
         });
+    }
+
+    async _reconnectIpc() {
+        if (this._shuttingDown || this._reconnecting) return;
+        this._reconnecting = true;
+
+        this._cleanupIpc();
+
+        try {
+            await this._waitForSocketAndConnect(this._socketPath);
+        } catch (e) {
+            logErrorMpv(`reconnect failed: ${e}`);
+        }
+        this._reconnecting = false;
+    }
+
+    async _startReadLoop() {
+        while (!this._shuttingDown) {
+            let line;
+            try {
+                [line] = await this._ipcInStream.read_line_async(GLib.PRIORITY_DEFAULT, null);
+            } catch (e) {
+                if (this._shuttingDown) return;
+                logErrorMpv(`ipc read error: ${e}`);
+                this._reconnectIpc();
+                return;
+            }
+
+            if (line === null) {
+                logErrorMpv('ipc connection closed by mpv (EOF)');
+                this._reconnectIpc();
+                return;
+            }
+
+            this._handleIpcLine(line);
+        }
+    }
+
+    _handleIpcLine(line) {
+        try {
+            const data = JSON.parse(line);
+
+            if (data.data && data.data.w && data.data.h) {
+                this.w = data.data.w;
+                this.h = data.data.h;
+            }
+
+            //NOTE: Once the file is loaded send command to pause it and retrieve video size
+            if (data.event == "file-loaded") {
+                this._queueCommand('set_property', 'pause', 'yes');
+                this._queueCommand('get_property', 'video-params');
+            }
+        } catch(err) {
+            logWarnMpv(`failed to handle "${line}". Reason: ${err}`)
+        }
     }
 
     _cleanupIpc() {
@@ -217,6 +222,7 @@ export class MpvPlayerProcess {
         }
     }
 
+    /* Fire and forget control methods */
     _slideValue(from, target, durationMs, onStep, onDone, stepMs = 10) {
         // One global slider for all values
         if (this._slideTimeoutId !== null) {
@@ -252,20 +258,20 @@ export class MpvPlayerProcess {
             durationMs,
             (value) => {
                 this._currentVolume = value;
-                this._sendCommand('set_property', 'volume', Math.round(value * 100));
+                this._queueCommand('set_property', 'volume', Math.round(value * 100));
             },
             onDone
         );
     }
 
     play() {
-        this._sendCommand('set_property', 'pause', 'no');
+        this._queueCommand('set_property', 'pause', 'no');
         this._slideVolume(this._volume, 300);
     }
 
     pause() {
         this._slideVolume(0, 300, () => {
-            this._sendCommand('set_property', 'pause', 'yes');
+            this._queueCommand('set_property', 'pause', 'yes');
         });
     }
 
@@ -299,16 +305,13 @@ export class MpvPlayerProcess {
                     global.window_manager.disconnectObject(this);
                     this._timeoutId = null;
 
-                    reject(new Error('Timed out waiting for window'));
+                    reject(new MpvError('timed out waiting for window'));
 
                     return GLib.SOURCE_REMOVE;
                 }
             );
         });
     }
-
-    get pid() { return this._pid; }
-    get window() { return this._window; }
 
     destroy() {
         this._shuttingDown = true;

@@ -1,8 +1,10 @@
 import Gio from 'gi://Gio';
 
-export function isOnBattery() {
+Gio._promisify(Gio.DBusProxy, 'new_for_bus', 'new_for_bus_finish');
+
+export async function isOnBattery() {
     try {
-        const upower = Gio.DBusProxy.new_for_bus_sync(
+        const upower = await Gio.DBusProxy.new_for_bus(
             Gio.BusType.SYSTEM,
             Gio.DBusProxyFlags.NONE,
             null,
