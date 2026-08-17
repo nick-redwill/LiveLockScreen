@@ -3,7 +3,7 @@ import GLib from 'gi://GLib';
 
 import { error } from '../utils/logging.js';
 
-export class PlayerProcess {
+export class GstPlayerProcess {
     constructor({ 
         playerPath, videoPath, scalingMode, loop, volume, 
         useVideorate = false, framerate, colorAccurate = true

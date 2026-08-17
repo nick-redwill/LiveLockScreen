@@ -1,7 +1,7 @@
-export function warn(text) {
+export function logWarn(text) {
     console.warn("LiveLockScreen: " + text);
 }
 
-export function error(text) {
+export function logError(text) {
     console.error("LiveLockScreen: " + text);
 }
