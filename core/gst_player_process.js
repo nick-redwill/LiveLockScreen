@@ -3,6 +3,7 @@ import GLib from 'gi://GLib';
 
 import { error } from '../utils/logging.js';
 
+//FIXME: Make compatible with the current extension.js logic 
 export class GstPlayerProcess {
     constructor({ 
         playerPath, videoPath, scalingMode, loop, volume, 

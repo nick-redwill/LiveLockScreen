@@ -68,6 +68,7 @@ export default class LockscreenExtension extends Extension {
         const framerate = this._settings.get_int(Keys.FRAMERATE);
         const colorAccurate = this._settings.get_boolean(Keys.DEBUG_USE_COLOR_ACCURATE);
 
+        //TODO: Add check for the backend
         this._player = new MpvPlayerProcess({
             videoPath,
             scalingMode: this._scalingMode,
