@@ -36,15 +36,7 @@ A GNOME Shell extension that lets you set any video as your lock screen backgrou
 - [ ] Test thoroughly
 - [ ] Publish to extensions.gnome.org
 
-## Known Issues
-
-- Possible audio and video desync after suspend/wake
-- Possible clicking/crackling sounds when pausing/playing video with audio
-- Video positioning issues when connecting/disconnecting monitors with lock screen on
-
 ## Installation
-
-### Manual
 
 1. Clone the repository:
 
@@ -63,9 +55,21 @@ A GNOME Shell extension that lets you set any video as your lock screen backgrou
    ```
 4. Open the extension preferences and select your video file.
 
+
 ## Requirements
 
 - GNOME Shell 46+
+- MPV (recommended):
+  ```bash
+  # Fedora
+  sudo dnf install mpv
+
+  # Ubuntu/Debian
+  sudo apt install mpv
+  ```
+
+or 
+
 - GStreamer with good/bad plugins:
   ```bash
     # Fedora
@@ -95,6 +99,7 @@ If you enjoy this extension, consider buying me a tea 🍵 (I’m not really a c
     <img src="https://github.com/user-attachments/assets/3b58a7fc-e605-4742-94e9-0bf3144c5021" width="200"/>
   </a>
 </p>
+
 
 ## License
 
