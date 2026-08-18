@@ -76,6 +76,11 @@
             <summary>Background video blur change animation duration</summary>
         </key>
 
+        <key name="debug-force-gst" type="b">
+            <default>false</default>
+            <summary>Whether to force usage of gtk instead of mpv (not recommended)</summary>
+        </key>
+        
         <key name="debug-use-color-accurate" type="b">
             <default>true</default>
             <summary>Whether to use color accurate pipeline with conversion</summary>

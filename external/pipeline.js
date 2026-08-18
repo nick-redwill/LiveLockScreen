@@ -1,4 +1,5 @@
 import Gst from 'gi://Gst';
+import GstPbutils from 'gi://GstPbutils';
 import GLib from 'gi://GLib';
 import GstController from 'gi://GstController';
 
@@ -76,6 +77,23 @@ export default class Pipeline {
 
             this._pipeline.set_property('video-sink', this._videoSink);
         }
+    }
+
+    getVideoSize() {
+        const uri = GLib.filename_to_uri(this._path, null);
+        const discoverer = GstPbutils.Discoverer.new(1 * Gst.SECOND); // 5s timeout
+
+        const info = discoverer.discover_uri(uri);
+        const videoStreams = info.get_video_streams();
+
+        if (videoStreams.length === 0)
+            return null;
+
+        const videoInfo = videoStreams[0];
+        return {
+            width: videoInfo.get_width(),
+            height: videoInfo.get_height(),
+        };
     }
 
     _initVideoColorAccurate() {

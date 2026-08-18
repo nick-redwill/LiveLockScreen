@@ -46,6 +46,7 @@ export class MpvPlayerProcess {
         this._writeQueue = [];
         this._writing = false;
 
+        this.shouldResize = true;
         this.w = 0;
         this.h = 0;
     }

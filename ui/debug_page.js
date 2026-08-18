@@ -16,10 +16,21 @@ class LLSDebugPage extends Adw.PreferencesPage {
         this._settings = settings;
 
         const group = new Adw.PreferencesGroup();
+        group.add(this._buildForceGstRow());
         group.add(this._buildDisableColorRow());
         group.add(this._buildForceFullscreenRow());
         group.add(this._buildForceGifRow());
         this.add(group);
+    }
+
+    _buildForceGstRow() {
+        const row = new Adw.SwitchRow({
+            title: 'Force GStreamer',
+            subtitle: 'Force the use of GStreamer for video playback',
+        });
+
+        this._settings.bind(Keys.DEBUG_FORCE_GST, row, 'active', Gio.SettingsBindFlags.DEFAULT);
+        return row;
     }
 
     _buildDisableColorRow() {

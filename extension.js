@@ -11,11 +11,15 @@ import GObject from 'gi://GObject';
 
 import { Keys, ScalingMode } from './enums.js';
 import { MpvPlayerProcess } from './core/mpv_player_process.js';
+import { GstPlayerProcess } from './core/gst_player_process.js';
 
 import { isOnBattery } from './utils/battery.js';
 import { SHELL_VERSION } from './utils/shell_version.js';
-import { logWarn, logError } from './utils/logging.js';
+import { logInfo, logWarn, logError } from './utils/logging.js';
 import { sleep } from './utils/base.js';
+
+import { isGtk4PaintableSinkAvailable, isMpvAvailable } from './utils/check_dependencies.js';
+import { sendErrorNotification } from './utils/notifications.js';
 
 const MAX_DIALOG_INJECT_ATTEMPTS = 100;
 const DIALOG_INJECT_INTERVAL = 100;
@@ -68,14 +72,38 @@ export default class LockscreenExtension extends Extension {
         const framerate = this._settings.get_int(Keys.FRAMERATE);
         const colorAccurate = this._settings.get_boolean(Keys.DEBUG_USE_COLOR_ACCURATE);
 
-        //TODO: Add check for the backend
-        this._player = new MpvPlayerProcess({
+        const forceGst = this._settings.get_boolean(Keys.DEBUG_FORCE_GST);
+
+        let cls = null;
+        if (!forceGst && isMpvAvailable()) {
+            logInfo('Using MPV as playback backend');
+            cls = MpvPlayerProcess;
+        }
+        else if (isGtk4PaintableSinkAvailable()) {
+            logInfo('Using GStreamer as playback backend');
+            cls = GstPlayerProcess;
+        }
+        
+        if (!cls)
+        {
+            sendErrorNotification(
+                `No suitable backends available for playback! ` +
+                `Install MPV (recommended) or gtk4paintable. ` +
+                `More info in README`
+            )
+            logError('No suitable backends available for playback');
+            return;
+        }
+
+        this._player = new cls({
+            playerPath: this.path + '/external/run.js',
             videoPath,
             scalingMode: this._scalingMode,
             loop,
             volume,
             useVideorate,
             framerate,
+            colorAccurate: colorAccurate
         });
 
         await this._player.run();
@@ -297,9 +325,10 @@ export default class LockscreenExtension extends Extension {
     }
 
     _handleMonitor(monitorIndex) {
-        this._window.move_resize_frame(
-            true, 0, 0, this._player.w, this._player.h
-        );
+        if (this._player.shouldResize)
+            this._window.move_resize_frame(
+                true, 0, 0, this._player.w, this._player.h
+            );
 
         const isLastMonitor = monitorIndex === Main.layoutManager.monitors.length - 1;
         const monitor = Main.layoutManager.monitors[monitorIndex];
