@@ -71,6 +71,7 @@ export class MpvPlayerProcess {
             '--keep-open=yes',
             '--osd-level=0',
             '--msg-level=all=no',
+            '--audio-buffer=0.1', //NOTE: prevents audio artifacts on fade
             '--no-terminal',
             `--volume=${Math.round(this._volume * 100)}`
         ];
