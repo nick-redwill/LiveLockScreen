@@ -13,6 +13,10 @@ Gio._promisify(Gio.SocketClient.prototype, 'connect_async', 'connect_finish');
 Gio._promisify(Gio.DataInputStream.prototype, 'read_line_async', 'read_line_finish');
 Gio._promisify(Gio.OutputStream.prototype, 'write_bytes_async', 'write_bytes_finish');
 
+// This number is meant to match the animation 
+// duration of lockscreen widgets + some ipc overhead 
+const FADE_DURATION_MS = 280; 
+
 export class MpvPlayerProcess {
     constructor({ 
         videoPath, scalingMode, loop, volume, 
@@ -32,16 +36,18 @@ export class MpvPlayerProcess {
         this._stdin = null;
         this._window = null;
         this._mapId = null;
-        this._timeoutId = null;
+        this._winTimeoutId = null;
 
         this._ipcConnection = null;
         this._ipcInStream = null;
         this._ipcOutStream = null;
         this._shuttingDown = false;
         this._reconnecting = false;
+        
 
-        this._slideTimeoutId = null;
+        this._transitionTimeoutId = null;
         this._currentVolume = volume;
+        this._position = 0;
 
         this._writeQueue = [];
         this._writing = false;
@@ -204,8 +210,13 @@ export class MpvPlayerProcess {
                 this.h = data.data.h;
             }
 
+            if (data.name == 'playback-time' && data.data) {
+                this._position = data.data;
+            }
+
             //NOTE: Once the file is loaded send command to pause it and retrieve video size
             if (data.event == "file-loaded") {
+                this._queueCommand('observe_property', 1, 'playback-time');
                 this._queueCommand('set_property', 'pause', 'yes');
                 this._queueCommand('get_property', 'video-params');
             }
@@ -223,55 +234,76 @@ export class MpvPlayerProcess {
         }
     }
 
-    /* Fire and forget control methods */
-    _slideValue(from, target, durationMs, onStep, onDone, stepMs = 10) {
-        // One global slider for all values
-        if (this._slideTimeoutId !== null) {
-            GLib.source_remove(this._slideTimeoutId);
-            this._slideTimeoutId = null;
+    _clearTransitionTimeout() {
+        if (this._transitionTimeoutId) {
+            GLib.source_remove(this._transitionTimeoutId);
+            this._transitionTimeoutId = null;
         }
-
-        const steps = Math.max(1, Math.round(durationMs / stepMs));
-        const delta = (target - from) / steps;
-        let currentStep = 0;
-        let value = from;
-
-        this._slideTimeoutId = GLib.timeout_add(GLib.PRIORITY_DEFAULT, stepMs, () => {
-            currentStep++;
-
-            if (currentStep >= steps) {
-                onStep(target);
-                this._slideTimeoutId = null;
-                onDone?.();
-                return GLib.SOURCE_REMOVE;
-            }
-
-            value += delta;
-            onStep(value);
-            return GLib.SOURCE_CONTINUE;
-        });
     }
 
-    _slideVolume(target, durationMs, onDone) {
-        this._slideValue(
-            this._currentVolume,
-            target,
-            durationMs,
-            (value) => {
-                this._currentVolume = value;
-                this._queueCommand('set_property', 'volume', Math.round(value * 100));
-            },
-            onDone
+    _currentGainEstimate() {
+        // This function is important because we need the approximate 
+        // volume for the silence/unity values in the af command
+
+        if (!this._fadeStartedAtMs) return this._lastSettledGain ?? 0;
+
+        const elapsedMs = GLib.get_monotonic_time() / 1000 - this._fadeStartedAtMs;
+        const progress = Math.max(0, Math.min(1, elapsedMs / FADE_DURATION_MS));
+
+        // linear (tri) curve assumed
+        if (this._fadeDirection === 'in') {
+            return this._fadeFromGain + (1 - this._fadeFromGain) * progress;
+        } else {
+            return this._fadeFromGain * (1 - progress);
+        }
+    }
+
+    _runFade(direction, onComplete) {
+        const currentGain = this._currentGainEstimate();
+
+        this._fadeDirection = direction;
+        this._fadeFromGain = currentGain;
+        this._fadeStartedAtMs = GLib.get_monotonic_time() / 1000;
+
+        // NOTE: 
+        // This scary long command is responsible for smooth audio fade without
+        // any weird clicking noises. We need to specify silence/unity value
+        // otherwise when interrupted by a new fade the volume jumps to 1 or 0
+        
+        // This may be hacky but it works :)
+        // If you have better ideas please contact me
+        const filterStr = direction === 'in'
+            ? `@fade:lavfi=[afade=t=in:st=${this._position}:d=${FADE_DURATION_MS}ms:curve=tri:silence=${currentGain}]`
+            : `@fade:lavfi=[afade=t=out:st=${this._position}:d=${FADE_DURATION_MS}ms:curve=tri:unity=${currentGain}]`;
+
+        this._queueCommand('af', 'set', filterStr);
+
+        this._transitionTimeoutId = GLib.timeout_add(
+            GLib.PRIORITY_DEFAULT,
+            FADE_DURATION_MS + 10,
+            () => {
+                this._queueCommand('af', 'clr', '');
+                this._transitionTimeoutId = null;
+                this._lastSettledGain = direction === 'in' ? 1 : 0;
+                this._fadeStartedAtMs = null;
+                if (onComplete) onComplete();
+                return GLib.SOURCE_REMOVE;
+            }
         );
+    }
+
+    _fade(direction, onComplete) {
+        this._clearTransitionTimeout();
+        this._runFade(direction, onComplete);
     }
 
     play() {
         this._queueCommand('set_property', 'pause', 'no');
-        this._slideVolume(this._volume, 300);
+        this._fade('in');
     }
 
     pause() {
-        this._slideVolume(0, 300, () => {
+        this._fade('out', () => {
             this._queueCommand('set_property', 'pause', 'yes');
         });
     }
@@ -291,20 +323,20 @@ export class MpvPlayerProcess {
 
                     global.window_manager.disconnectObject(this);
 
-                    if (this._timeoutId !== null) {
-                        GLib.source_remove(this._timeoutId);
-                        this._timeoutId = null;
+                    if (this._winTimeoutId !== null) {
+                        GLib.source_remove(this._winTimeoutId);
+                        this._winTimeoutId = null;
                     }
                 },
                 this
             );
 
-            this._timeoutId = GLib.timeout_add(
+            this._winTimeoutId = GLib.timeout_add(
                 GLib.PRIORITY_DEFAULT,
                 timeoutMs,
                 () => {
                     global.window_manager.disconnectObject(this);
-                    this._timeoutId = null;
+                    this._winTimeoutId = null;
 
                     reject(new MpvError('timed out waiting for window'));
 
@@ -317,16 +349,12 @@ export class MpvPlayerProcess {
     destroy() {
         this._shuttingDown = true;
         
-        if (this._timeoutId !== null) {
-            GLib.source_remove(this._timeoutId);
-            this._timeoutId = null;
-        }
+        this._clearTransitionTimeout();
 
-        if (this._slideTimeoutId !== null) {
-            GLib.source_remove(this._slideTimeoutId);
-            this._slideTimeoutId = null;
+        if (this._winTimeoutId !== null) {
+            GLib.source_remove(this._winTimeoutId);
+            this._winTimeoutId = null;
         }
-
         global.window_manager.disconnectObject(this);
 
         this._cleanupIpc()
