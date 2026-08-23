@@ -89,7 +89,7 @@ export default class LockscreenExtension extends Extension {
             sendErrorNotification(
                 `No suitable backends available for playback! ` +
                 `Install MPV (recommended) or GStreamer. ` +
-                `More info in README.`
+                `More info in README.md.`
             )
             logError('No suitable backends available for playback');
             return;
