@@ -16,7 +16,7 @@ import { GstPlayerProcess } from './core/gst_player_process.js';
 import { isOnBattery } from './utils/battery.js';
 import { SHELL_VERSION } from './utils/shell_version.js';
 import { logInfo, logWarn, logError } from './utils/logging.js';
-import { sleep } from './utils/base.js';
+import { sleep, destroySleeps } from './utils/base.js';
 
 import { isGtk4PaintableSinkAvailable, isMpvAvailable } from './utils/check_dependencies.js';
 import { sendErrorNotification } from './utils/notifications.js';
@@ -451,6 +451,8 @@ export default class LockscreenExtension extends Extension {
          * User unlocked the screen. 
          * Stopping the videoplayblack and cleaning everything up
         */
+        destroySleeps()
+
         if (this._injectRetryId) {
             GLib.source_remove(this._injectRetryId);
             this._injectRetryId = 0;

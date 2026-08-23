@@ -74,15 +74,12 @@ export class GstPlayerProcess {
                     this.h = win.get_frame_rect().height;
 
                     global.window_manager.disconnectObject(this);
-
-                    if (this._timeoutId !== null) {
-                        GLib.source_remove(this._timeoutId);
-                        this._timeoutId = null;
-                    }
+                    this._cleanWinTimeout();
                 },
                 this
             );
 
+            this._cleanWinTimeout();
             this._timeoutId = GLib.timeout_add(
                 GLib.PRIORITY_DEFAULT,
                 timeoutMs,
@@ -91,11 +88,17 @@ export class GstPlayerProcess {
                     this._timeoutId = null;
 
                     reject(new Error('GstPlayerProcess: timed out waiting for window'));
-
                     return GLib.SOURCE_REMOVE;
                 }
             );
         });
+    }
+
+    _cleanWinTimeout() {
+        if (this._timeoutId !== null) {
+            GLib.source_remove(this._timeoutId);
+            this._timeoutId = null;
+        }
     }
 
     play() {
@@ -119,11 +122,7 @@ export class GstPlayerProcess {
     get windows() { return this._windows; }
 
     destroy() {
-        if (this._timeoutId !== null) {
-            GLib.source_remove(this._timeoutId);
-            this._timeoutId = null;
-        }
-
+        this._cleanWinTimeout();
         global.window_manager.disconnectObject(this);
 
         if (this._stdin) {
@@ -141,6 +140,5 @@ export class GstPlayerProcess {
            this._window.kill();
            this._window = null;
         }
-
     }
 }
