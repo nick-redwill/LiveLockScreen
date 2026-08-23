@@ -451,7 +451,7 @@ export default class LockscreenExtension extends Extension {
          * User unlocked the screen. 
          * Stopping the videoplayblack and cleaning everything up
         */
-        destroySleeps()
+        destroySleeps();
 
         if (this._injectRetryId) {
             GLib.source_remove(this._injectRetryId);
