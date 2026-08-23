@@ -5,7 +5,7 @@ import GstController from 'gi://GstController';
 
 import { initGst } from '../utils/safe_gst.js';
 
-const FADE_DURATION = 300
+const FADE_DURATION_MS = 280;
 
 export default class Pipeline {
     constructor({
@@ -225,15 +225,15 @@ export default class Pipeline {
     }
 
     play() {
-        this.easeVolume(this._volume, FADE_DURATION);
+        this.easeVolume(this._volume, FADE_DURATION_MS);
         this._pipeline.set_state(Gst.State.PLAYING);
     }
 
     pause() {
-        this.easeVolume(0, FADE_DURATION);
+        this.easeVolume(0, FADE_DURATION_MS);
         GLib.timeout_add(
             GLib.PRIORITY_DEFAULT,
-            FADE_DURATION + 50,
+            FADE_DURATION_MS + 50,
             () => {
                 const [ok, position] = this._pipeline.query_position(Gst.Format.TIME);
                 if (ok && position > 0) {

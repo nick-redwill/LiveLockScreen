@@ -108,6 +108,7 @@ export class MpvPlayerProcess {
             return this._transparencyArgCache;
         }
 
+        //NOTE: Newer versions of MPV (0.0.38 and above) do not use --alpha flag
         const usesNewBackgroundSyntax =
             version.major > 0 || (version.major === 0 && version.minor >= 38);
 
