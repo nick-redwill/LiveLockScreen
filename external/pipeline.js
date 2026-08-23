@@ -1,10 +1,11 @@
 import Gst from 'gi://Gst';
+import GstPbutils from 'gi://GstPbutils';
 import GLib from 'gi://GLib';
 import GstController from 'gi://GstController';
 
 import { initGst } from '../utils/safe_gst.js';
 
-const FADE_DURATION = 300
+const FADE_DURATION_MS = 280;
 
 export default class Pipeline {
     constructor({
@@ -76,6 +77,23 @@ export default class Pipeline {
 
             this._pipeline.set_property('video-sink', this._videoSink);
         }
+    }
+
+    getVideoSize() {
+        const uri = GLib.filename_to_uri(this._path, null);
+        const discoverer = GstPbutils.Discoverer.new(1 * Gst.SECOND); // 5s timeout
+
+        const info = discoverer.discover_uri(uri);
+        const videoStreams = info.get_video_streams();
+
+        if (videoStreams.length === 0)
+            return null;
+
+        const videoInfo = videoStreams[0];
+        return {
+            width: videoInfo.get_width(),
+            height: videoInfo.get_height(),
+        };
     }
 
     _initVideoColorAccurate() {
@@ -207,15 +225,15 @@ export default class Pipeline {
     }
 
     play() {
-        this.easeVolume(this._volume, FADE_DURATION);
+        this.easeVolume(this._volume, FADE_DURATION_MS);
         this._pipeline.set_state(Gst.State.PLAYING);
     }
 
     pause() {
-        this.easeVolume(0, FADE_DURATION);
+        this.easeVolume(0, FADE_DURATION_MS);
         GLib.timeout_add(
             GLib.PRIORITY_DEFAULT,
-            FADE_DURATION + 50,
+            FADE_DURATION_MS + 50,
             () => {
                 const [ok, position] = this._pipeline.query_position(Gst.Format.TIME);
                 if (ok && position > 0) {

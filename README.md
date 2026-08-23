@@ -28,6 +28,18 @@ It is designed to be simple, lightweight, and reliable.
 
 If you're looking for more advanced lock screen or desktop customization, you may want to explore alternative extensions or check out some forks of this project.
 
+## Important notice
+
+Up until version **4.0.0**, the extension relied solely on GStreamer for video playback.
+Starting from that version, MPV is the main and recommended playback backend.
+
+GStreamer remains available as a fallback for now (you can force its use in the Debug section),
+but the end goal is to remove it from the extension entirely.
+
+More info about the reasoning behind this decision can be found in issue #25.
+
+If you experience problems or bugs with MPV playback, please feel free to report them.
+
 ## Features
 
 - 🎬 Play any video and GIF file as the lock screen background
@@ -44,9 +56,7 @@ If you're looking for more advanced lock screen or desktop customization, you ma
 
 ## Known Issues
 
-- Possible audio and video desync after suspend/wake
 - Possible clicking/crackling sounds when pausing/playing video with audio
-- Video positioning issues when connecting/disconnecting monitors with lock screen on
 
 ## Installation
 
@@ -82,24 +92,44 @@ If you're looking for more advanced lock screen or desktop customization, you ma
 ## Requirements
 
 - GNOME Shell 46+
-- GStreamer with good/bad plugins:
+- MPV (recommended):
   ```bash
   # Fedora
-  sudo dnf install gstreamer1-plugins-good gstreamer1-plugins-bad-free gstreamer1-plugins-ugly gstreamer1-plugins-bad-free-extras
+  sudo dnf install mpv
 
   # Ubuntu/Debian
-  sudo apt install gstreamer1.0-plugins-good gstreamer1.0-plugins-bad gstreamer1.0-plugins-ugly
+  sudo apt install mpv
+
+  # Arch
+  sudo pacman -S mpv
+  ```
+
+or alternatively:
+
+- GStreamer with good/bad plugins:
+  ```bash
+    # Fedora
+    sudo dnf install gstreamer1-plugins-good gstreamer1-plugins-bad-free gstreamer1-plugins-ugly gstreamer1-plugins-bad-free-extras
+
+    # Ubuntu/Debian
+    sudo apt install gstreamer1.0-plugins-good gstreamer1.0-plugins-bad gstreamer1.0-plugins-ugly
+
+    # Arch
+    sudo pacman -S gst-plugins-good gst-plugins-bad gst-plugins-ugly
   ```
 - GStreamer GTK4 video sink (`gtk4paintablesink`):
   ```bash
-  # Fedora
-  sudo dnf install gstreamer1-plugin-gtk4
+    # Fedora
+    sudo dnf install gstreamer1-plugin-gtk4
 
-  # Ubuntu 24.10+ / Debian (newer)
-  sudo apt install gstreamer1.0-gtk4
+    # Ubuntu 24.10+ / Debian (newer)
+    sudo apt install gstreamer1.0-gtk4
 
-  # Ubuntu 24.04 — not available as a package.
-  # Either build from source or download from launchpad
+    # Ubuntu 24.04 — not available as a package.
+    # Either build from source or download from launchpad
+
+    # Arch
+    sudo pacman -S gst-plugin-gtk4
   ```
 
 ## Support

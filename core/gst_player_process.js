@@ -1,9 +1,9 @@
 import Gio from 'gi://Gio';
 import GLib from 'gi://GLib';
 
-import { error } from '../utils/logging.js';
+import { logError } from '../utils/logging.js';
 
-export class PlayerProcess {
+export class GstPlayerProcess {
     constructor({ 
         playerPath, videoPath, scalingMode, loop, volume, 
         useVideorate = false, framerate, colorAccurate = true
@@ -20,12 +20,16 @@ export class PlayerProcess {
         this._proc = null;
         this._pid = null;
         this._stdin = null;
-        this._windows = [];
+        this._window = null;
         this._mapId = null;
         this._timeoutId = null;
+
+        this.shouldResize = false;
+        this.w = 0;
+        this.h = 0;
     }
 
-    run() {
+    async run() {
         this._proc = new Gio.Subprocess({
             argv: [
                 'gjs', '-m',
@@ -49,32 +53,52 @@ export class PlayerProcess {
         });
     }
 
-    waitForWindows(count, timeoutMs, callback, errback) {
-        const collected = [];
+    async waitForWindow(timeoutMs) {
+        return new Promise((resolve, reject) => {
+            this._mapId = global.window_manager.connectObject(
+                'map',
+                (_wm, windowActor) => {
+                    const win = windowActor.get_meta_window();
 
-        this._mapId = global.window_manager.connectObject('map', (_wm, windowActor) => {
-            const win = windowActor.get_meta_window();
-            if (win.get_pid() !== this._pid) return;
+                    if (win.get_pid() !== this._pid)
+                        return;
 
-            collected.push(win);
+                    this._window = win;
+                    resolve(win);
 
-            if (collected.length === count) {
-                global.window_manager.disconnectObject(this);
-                if (this._timeoutId !== null) {
-                    GLib.source_remove(this._timeoutId);
+                    //NOTE: 
+                    // We delegate setting window to video size 
+                    // to external player. So the window is guaranteed to be
+                    // the target size
+                    this.w = win.get_frame_rect().width;
+                    this.h = win.get_frame_rect().height;
+
+                    global.window_manager.disconnectObject(this);
+                    this._cleanWinTimeout();
+                },
+                this
+            );
+
+            this._cleanWinTimeout();
+            this._timeoutId = GLib.timeout_add(
+                GLib.PRIORITY_DEFAULT,
+                timeoutMs,
+                () => {
+                    global.window_manager.disconnectObject(this);
                     this._timeoutId = null;
+
+                    reject(new Error('GstPlayerProcess: timed out waiting for window'));
+                    return GLib.SOURCE_REMOVE;
                 }
-
-                callback(collected);
-            }
-        }, this);
-
-        this._timeoutId = GLib.timeout_add(GLib.PRIORITY_DEFAULT, timeoutMs, () => {
-            global.window_manager.disconnectObject(this);
-            this._timeoutId = null;
-            errback?.(`timed out waiting for windows (got ${collected.length}/${count})`);
-            return GLib.SOURCE_REMOVE;
+            );
         });
+    }
+
+    _cleanWinTimeout() {
+        if (this._timeoutId !== null) {
+            GLib.source_remove(this._timeoutId);
+            this._timeoutId = null;
+        }
     }
 
     play() {
@@ -90,7 +114,7 @@ export class PlayerProcess {
         try {
             this._stdin.put_string(`${command}\n`, null);
         } catch (e) {
-            error(`failed to send command "${command}":`, e);
+            logError(`failed to send command "${command}":`, e);
         }
     }
 
@@ -98,11 +122,7 @@ export class PlayerProcess {
     get windows() { return this._windows; }
 
     destroy() {
-        if (this._timeoutId !== null) {
-            GLib.source_remove(this._timeoutId);
-            this._timeoutId = null;
-        }
-
+        this._cleanWinTimeout();
         global.window_manager.disconnectObject(this);
 
         if (this._stdin) {
@@ -116,6 +136,9 @@ export class PlayerProcess {
             this._pid = null;
         }
 
-        this._windows = [];
+        if (this._window) {
+           this._window.kill();
+           this._window = null;
+        }
     }
 }

@@ -19,6 +19,7 @@ export default class PlayerMulti {
         this._framerate = framerate;
         this._colorAccurate = colorAccurate;
 
+        this._videoSize = null;
         this._pipeline = null;
         this._commands = null;
         this._app = null;
@@ -50,6 +51,7 @@ export default class PlayerMulti {
             });
             this._pipeline.init();
             this._pipeline.preroll();
+            this._videoSize = this._pipeline.getVideoSize()
 
             this._initStyle();
             this._initWindows();
@@ -102,48 +104,35 @@ export default class PlayerMulti {
         if (!display)
             throw new Error('Failed to get GDK display');
 
-        const gdkMonitors = display.get_monitors();
-        const monitorCount = gdkMonitors.get_n_items();
+        const window = new Gtk.Window({
+            application: this._app,
+            title: `LLS-Player`,
+        });
+        
+        const picture = new Gtk.Picture({
+            paintable,
+            content_fit: scaling,
+            can_shrink: true,
+            hexpand: true,
+            vexpand: true,
+        });
 
-        if (monitorCount === 0)
-            throw new Error('No monitors found');
+        window.set_child(picture);
+        window.set_decorated(false);
 
-        for (let i = 0; i < monitorCount; i++) {
-            const gdkMonitor = gdkMonitors.get_item(i);
-            const connector = gdkMonitor.get_connector();
-            const geo = gdkMonitor?.get_geometry();
+        try { window.set_modal(false); } catch (_) {}
+        try { window.set_startup_id(''); } catch (_) {}
+        try { window.set_can_target(false); } catch (_) {}
+        try { window.set_focusable(false); } catch (_) {}
 
-            const window = new Gtk.Window({
-                application: this._app,
-                title: `LLS-Player-${connector}`,
-            });
-            
-            const picture = new Gtk.Picture({
-                paintable,
-                content_fit: scaling,
-                can_shrink: true,
-                hexpand: true,
-                vexpand: true,
-            });
+        window.set_resizable(false);
+        window.set_default_size(this._videoSize.width, this._videoSize.height);
+        window.set_size_request(this._videoSize.width, this._videoSize.height);
 
-            window.set_child(picture);
-            window.set_decorated(false);
-
-            try { window.set_modal(false); } catch (_) {}
-            try { window.set_startup_id(''); } catch (_) {}
-            try { window.set_can_target(false); } catch (_) {}
-            try { window.set_focusable(false); } catch (_) {}
-
-            if (geo) {
-                window.set_default_size(geo.width, geo.height);
-                window.set_size_request(geo.width, geo.height);
-            }
-
-            window.connect('realize', () => {
-                window.get_surface()?.set_opaque_region(null);
-            });
-            window.present();
-        }
+        window.connect('realize', () => {
+            window.get_surface()?.set_opaque_region(null);
+        });
+        window.present();
     }
 
     _initCommands() {
