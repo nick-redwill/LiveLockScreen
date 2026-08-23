@@ -10,12 +10,27 @@ class LLSDependencyErrorPage extends Adw.PreferencesPage {
             name: 'DependencyErrorPage',
         });
 
-        const group = new Adw.PreferencesGroup();
+        const group = new Adw.PreferencesGroup({
+            title: 'Missing dependencies',
+            description: 'Live Lock Screen needs a playback backend to work. MPV is recommended.',
+        });
 
-        const row = new Adw.ActionRow({
-            title: 'Missing dependency',
+        const mpvRow = new Adw.ActionRow({
+            title: 'MPV backend (recommended)',
             subtitle:
-                `gtk4paintablesink is not available.\n\n` +
+                `Better reliability, GIF support, and smoother playback.\n\n` +
+                `Install MPV for your distribution:\n` +
+                `  • Fedora/RHEL: dnf install mpv\n` +
+                `  • Ubuntu/Debian: apt install mpv\n` +
+                `  • Arch: pacman -S mpv`,
+            icon_name: 'starred-symbolic',
+        });
+        mpvRow.add_css_class('accent');
+
+        const gstreamerRow = new Adw.ActionRow({
+            title: 'GStreamer backend',
+            subtitle:
+                `Alternatively, you can use the GStreamer backend.\n\n` +
                 `Install the GStreamer GTK4 plugin for your distribution:\n` +
                 `  • Fedora/RHEL: gstreamer1-plugin-gtk4\n` +
                 `  • Ubuntu (24.10+)/Debian: gstreamer1.0-gtk4\n` +
@@ -23,9 +38,11 @@ class LLSDependencyErrorPage extends Adw.PreferencesPage {
                 `See README.md for more information.`,
             icon_name: 'dialog-error-symbolic',
         });
-        row.add_css_class('error');
+        gstreamerRow.add_css_class('error');
 
-        group.add(row);
+        group.add(mpvRow);
+        group.add(gstreamerRow);
+
         this.add(group);
     }
 });

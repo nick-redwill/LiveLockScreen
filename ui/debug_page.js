@@ -19,7 +19,7 @@ class LLSDebugPage extends Adw.PreferencesPage {
         group.add(this._buildForceGstRow());
         group.add(this._buildDisableColorRow());
         group.add(this._buildForceFullscreenRow());
-        group.add(this._buildForceGifRow());
+        //group.add(this._buildForceGifRow());
         this.add(group);
     }
 
