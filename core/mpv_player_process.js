@@ -10,6 +10,7 @@ const logWarnMpv = (msg) => logWarn(`MpvPlayerProcess: ${msg}`);
 const MpvError = (msg) => new Error(`MpvPlayerProcess: ${msg}`);
 
 Gio._promisify(Gio.SocketClient.prototype, 'connect_async', 'connect_finish');
+Gio._promisify(Gio.Subprocess.prototype, 'communicate_utf8_async', 'communicate_utf8_finish');
 Gio._promisify(Gio.DataInputStream.prototype, 'read_line_async', 'read_line_finish');
 Gio._promisify(Gio.OutputStream.prototype, 'write_bytes_async', 'write_bytes_finish');
 
@@ -60,6 +61,8 @@ export class MpvPlayerProcess {
     async run() {
         this._removeSocketFile();
 
+        const transparencyArg = await this._getTransparencyArg();
+
         const args = [
             'mpv', 
             `--input-ipc-server=${this._socketPath}`, 
@@ -76,6 +79,9 @@ export class MpvPlayerProcess {
             `--volume=${Math.round(this._volume * 100)}`
         ];
 
+        if (transparencyArg)
+            args.push(transparencyArg);
+
         if (this._loop)
             args.push('--loop');
 
@@ -89,6 +95,51 @@ export class MpvPlayerProcess {
         this._pid = parseInt(this._proc.get_identifier());
 
         await this._waitForSocketAndConnect(this._socketPath);
+    }
+
+    async _getTransparencyArg() {
+        if (this._transparencyArgCache !== undefined)
+            return this._transparencyArgCache;
+
+        const version = await this._getMpvVersion();
+
+        if (!version) {
+            this._transparencyArgCache = null;
+            return this._transparencyArgCache;
+        }
+
+        const usesNewBackgroundSyntax =
+            version.major > 0 || (version.major === 0 && version.minor >= 38);
+
+        this._transparencyArgCache = usesNewBackgroundSyntax
+            ? '--background=none'
+            : '--alpha=yes';
+
+        return this._transparencyArgCache;
+    }
+
+    async _getMpvVersion() {
+        if (this._mpvVersionCache !== undefined)
+            return this._mpvVersionCache;
+
+        try {
+            const proc = Gio.Subprocess.new(
+                ['mpv', '--version'],
+                Gio.SubprocessFlags.STDOUT_PIPE | Gio.SubprocessFlags.STDERR_SILENCE
+            );
+
+            const [stdout] = await proc.communicate_utf8_async(null, null);
+            const match = stdout.match(/mpv.*(\d+)\.(\d+)\.(\d+)/);
+
+            this._mpvVersionCache = match
+                ? { major: parseInt(match[1]), minor: parseInt(match[2]), patch: parseInt(match[3]) }
+                : null;
+        } catch (e) {
+            logErrorMpv(`failed to determine mpv version: ${e}`);
+            this._mpvVersionCache = null;
+        }
+
+        return this._mpvVersionCache;
     }
 
     _removeSocketFile() {
