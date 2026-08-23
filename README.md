@@ -66,6 +66,9 @@ A GNOME Shell extension that lets you set any video as your lock screen backgrou
 
   # Ubuntu/Debian
   sudo apt install mpv
+
+  # Arch
+  sudo pacman -S mpv
   ```
 
 or 
@@ -77,6 +80,9 @@ or
 
     # Ubuntu/Debian
     sudo apt install gstreamer1.0-plugins-good gstreamer1.0-plugins-bad gstreamer1.0-plugins-ugly
+
+    # Arch
+    sudo pacman -S gst-plugins-good gst-plugins-bad gst-plugins-ugly
   ```
 - GStreamer GTK4 video sink (`gtk4paintablesink`):
   ```bash
@@ -88,6 +94,9 @@ or
 
     # Ubuntu 24.04 — not available as a package.
     # Either build from source or download from launchpad
+
+    # Arch
+    sudo pacman -S gst-plugin-gtk4
   ```
 
 ## Support
