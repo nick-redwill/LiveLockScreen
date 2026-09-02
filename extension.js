@@ -54,9 +54,15 @@ export default class LockscreenExtension extends Extension {
     }
 
     async _setupLock() {
-        const videoPath = this._settings.get_string(Keys.VIDEO_PATH);
-        if (!videoPath) {
-            logWarn('Video not set, falling back');
+        const sourcePath = this._settings.get_string(Keys.VIDEO_PATH);
+        if (!sourcePath) {
+            logWarn('Image folder not set, falling back');
+            return;
+        }
+
+        const mediaPath = this._resolveMediaPath(sourcePath);
+        if (!mediaPath) {
+            logWarn(`No supported images found in selected path: ${sourcePath}`);
             return;
         }
         
@@ -70,6 +76,7 @@ export default class LockscreenExtension extends Extension {
         const loop = this._settings.get_boolean(Keys.LOOPED);
         const useVideorate = this._settings.get_boolean(Keys.USE_VIDEORATE);
         const framerate = this._settings.get_int(Keys.FRAMERATE);
+        const scalingMode = this._settings.get_int(Keys.SCALING_MODE);
         const colorAccurate = this._settings.get_boolean(Keys.DEBUG_USE_COLOR_ACCURATE);
 
         const forceGst = this._settings.get_boolean(Keys.DEBUG_FORCE_GST);
@@ -97,8 +104,8 @@ export default class LockscreenExtension extends Extension {
 
         this._player = new cls({
             playerPath: this.path + '/external/run.js',
-            videoPath,
-            scalingMode: this._scalingMode,
+            videoPath: mediaPath,
+            scalingMode,
             loop,
             volume,
             useVideorate,
@@ -108,6 +115,85 @@ export default class LockscreenExtension extends Extension {
 
         await this._player.run();
         await this._onPlayerInit();
+    }
+
+    _resolveMediaPath(path) {
+        let type;
+        const file = Gio.File.new_for_path(path);
+        try {
+            type = file.query_file_type(Gio.FileQueryInfoFlags.NONE, null);
+        } catch (e) {
+            logWarn(`Failed to inspect selected path "${path}": ${e}`);
+            return null;
+        }
+
+        if (type === Gio.FileType.DIRECTORY)
+            return this._findFirstImageInDirectory(file);
+
+        if (type === Gio.FileType.REGULAR && this._isSupportedImageFile(path))
+            return path;
+
+        return null;
+    }
+
+    _findFirstImageInDirectory(rootDir) {
+        const stack = [rootDir];
+
+        while (stack.length > 0) {
+            const dir = stack.pop();
+            let enumerator = null;
+
+            try {
+                enumerator = dir.enumerate_children(
+                    'standard::name,standard::type',
+                    Gio.FileQueryInfoFlags.NOFOLLOW_SYMLINKS,
+                    null
+                );
+            } catch (e) {
+                logWarn(`Unable to read directory "${dir.get_path()}": ${e}`);
+                continue;
+            }
+
+            const imagePaths = [];
+            const subDirs = [];
+
+            try {
+                let info = null;
+                while ((info = enumerator.next_file(null)) !== null) {
+                    const type = info.get_file_type();
+                    const child = enumerator.get_child(info);
+
+                    if (type === Gio.FileType.DIRECTORY) {
+                        subDirs.push(child);
+                        continue;
+                    }
+
+                    if (type !== Gio.FileType.REGULAR)
+                        continue;
+
+                    const childPath = child.get_path();
+                    if (childPath && this._isSupportedImageFile(childPath))
+                        imagePaths.push(childPath);
+                }
+            } finally {
+                try { enumerator.close(null); } catch (_) {}
+            }
+
+            imagePaths.sort();
+            if (imagePaths.length > 0)
+                return imagePaths[0];
+
+            subDirs.sort((a, b) => (a.get_basename() ?? '').localeCompare(b.get_basename() ?? ''));
+            for (let i = subDirs.length - 1; i >= 0; i--)
+                stack.push(subDirs[i]);
+        }
+
+        return null;
+    }
+
+    _isSupportedImageFile(path) {
+        const ext = path.split('.').pop()?.toLowerCase();
+        return ['jpg', 'jpeg', 'png', 'gif', 'webp', 'bmp', 'tif', 'tiff'].includes(ext);
     }
 
     async _onPlayerInit() {

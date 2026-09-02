@@ -6,7 +6,7 @@
         </key>
         <key name="background-video-path" type="s">
             <default>""</default>
-            <summary>Path to background video</summary>
+            <summary>Path to background image folder</summary>
         </key>
         <key name="background-video-scaling-mode" type="i">
             <range min="0" max="2" />

@@ -1,6 +1,6 @@
 <p align="center">
-  <img src="https://img.shields.io/github/stars/nick-redwill/LiveLockScreen">
-  <img src="https://img.shields.io/github/license/nick-redwill/LiveLockScreen">
+  <img src="https://img.shields.io/github/stars/rmacordeiro/LiveLockScreen">
+  <img src="https://img.shields.io/github/license/rmacordeiro/LiveLockScreen">
   <img alt="GNOME Shell" src="https://img.shields.io/badge/GNOME_Shell-46%2B-4A86CF?logo=gnome&logoColor=white"/>
   <img src="https://img.shields.io/badge/status-active-success">
 </p>
@@ -11,7 +11,7 @@
 
 # Live Lock Screen
 
-A GNOME Shell extension that lets you set any video/GIF as your lock screen background.
+A GNOME Shell extension that lets you set images as your lock screen background.
 
 > ⚠️ On recent NVIDIA drivers, prolonged lock sessions may trigger a kernel-side memory leak that can lead to system-wide OOM events or crashes. This appears to be a driver issue rather than a bug in the extension.
 
@@ -72,22 +72,24 @@ If you experience problems or bugs with MPV playback, please feel free to report
   
 ### Manual
 
-1. Clone the repository:
+1. Clone your fork and checkout the branch you want to test:
 
    ```bash
-   git clone https://github.com/nick-redwill/LiveLockScreen.git
+   git clone --branch <branch-name> --single-branch https://github.com/rmacordeiro/LiveLockScreen.git
+   cd LiveLockScreen
    ```
 2. Copy to your extensions folder:
 
    ```bash
-   cp -r LiveLockScreen ~/.local/share/gnome-shell/extensions/live-lockscreen@nick-redwill
+   cp -r LiveLockScreen ~/.local/share/gnome-shell/extensions/live-lockscreen@rmacordeiro
    ```
 3. Log out and back in, then enable the extension:
 
    ```bash
-   gnome-extensions enable live-lockscreen@nick-redwill
+   gnome-extensions enable live-lockscreen@rmacordeiro
    ```
-4. Open the extension preferences and select your file.
+4. Open the extension preferences and select an image folder.
+   The extension scans that folder recursively and uses images found in nested folders too.
 
 ## Requirements
 
@@ -137,7 +139,7 @@ or alternatively:
 If you enjoy this extension, consider buying me a tea 🍵 (I’m not really a coffee person :D)
 
 <p align="center">
-  <a href="https://www.buymeacoffee.com/nick_redwill">
+  <a href="https://www.buymeacoffee.com/rmacordeiro">
     <img src="https://github.com/user-attachments/assets/3b58a7fc-e605-4742-94e9-0bf3144c5021" width="200"/>
   </a>
 </p>
