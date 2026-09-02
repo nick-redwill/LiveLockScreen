@@ -24,18 +24,6 @@ It is designed to be simple, lightweight, and reliable.
 
 If you're looking for more advanced lock screen or desktop customization, you may want to explore alternative extensions or check out some forks of this project.
 
-## Important notice
-
-Up until version **4.0.0**, the extension relied solely on GStreamer for video playback.
-Starting from that version, MPV is the main and recommended playback backend.
-
-GStreamer remains available as a fallback for now (you can force its use in the Debug section),
-but the end goal is to remove it from the extension entirely.
-
-More info about the reasoning behind this decision can be found in issue #25.
-
-If you experience problems or bugs with MPV playback, please feel free to report them.
-
 ## Features
 
 - 🖼️ Play photos from a selected folder (recursive scan)
