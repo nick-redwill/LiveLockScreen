@@ -61,7 +61,7 @@ class LLSAboutPage extends Adw.PreferencesPage {
         const description = new Gtk.Label({
             label:
                 this._metadata.description ??
-                "Play a video or GIF as your GNOME lock screen background.",
+                "Play images as your GNOME lock screen background.",
             wrap: true,
             justify: Gtk.Justification.CENTER,
             margin_top: 8,
@@ -99,7 +99,7 @@ class LLSAboutPage extends Adw.PreferencesPage {
                 subtitle: "Support the developer",
                 icon: "emblem-favorite-symbolic",
                 // hardcoded for reliability
-                url: "https://buymeacoffee.com/nick_redwill", 
+                url: "https://buymeacoffee.com/rmacordeiro", 
             },
         ];
 

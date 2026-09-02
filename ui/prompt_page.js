@@ -46,13 +46,13 @@ class LLSPromptPage extends Adw.PreferencesPage {
     }
 
     _buildPauseRow() {
-        const row = new Adw.SwitchRow({ title: 'Pause video' });
+        const row = new Adw.SwitchRow({ title: 'Pause slideshow' });
         this._settings.bind(Keys.PROMPT_PAUSE, row, 'active', Gio.SettingsBindFlags.DEFAULT);
         return row;
     }
 
     _buildGrayscaleRow() {
-        const row = new Adw.SwitchRow({ title: 'Grayscale video' });
+        const row = new Adw.SwitchRow({ title: 'Grayscale slideshow' });
         this._settings.bind(Keys.PROMPT_GRAYSCALE, row, 'active', Gio.SettingsBindFlags.DEFAULT);
         return row;
     }

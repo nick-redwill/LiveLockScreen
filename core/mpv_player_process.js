@@ -20,12 +20,14 @@ const FADE_DURATION_MS = 280;
 
 export class MpvPlayerProcess {
     constructor({ 
-        videoPath, scalingMode, loop, volume, 
+        videoPath, mediaPaths = null, photoDuration = 10, scalingMode, loop, volume, 
         useVideorate = false, framerate, 
     }) {
         this._socketPath = '/tmp/lls-mpv.sock';
 
         this._videoPath = videoPath;
+        this._mediaPaths = mediaPaths && mediaPaths.length > 0 ? mediaPaths : [videoPath];
+        this._photoDuration = photoDuration;
         this._scalingMode = scalingMode;
         this._loop = loop;
         this._volume = volume;
@@ -66,7 +68,6 @@ export class MpvPlayerProcess {
         const args = [
             'mpv', 
             `--input-ipc-server=${this._socketPath}`, 
-            this._videoPath,
             '--keepaspect=no',
             '--hwdec=auto',
             '--vo=gpu-next',
@@ -76,17 +77,24 @@ export class MpvPlayerProcess {
             '--msg-level=all=no',
             '--audio-buffer=0.1', //NOTE: prevents audio artifacts on fade
             '--no-terminal',
-            `--volume=${Math.round(this._volume * 100)}`
+            `--volume=${Math.round(this._volume * 100)}`,
+            `--image-display-duration=${this._photoDuration}`,
         ];
 
         if (transparencyArg)
             args.push(transparencyArg);
 
-        if (this._loop)
-            args.push('--loop');
+        if (this._loop) {
+            if (this._mediaPaths.length > 1)
+                args.push('--loop-playlist=inf');
+            else
+                args.push('--loop=inf');
+        }
 
         if (this._useVideorate)
             args.push(`--vf=fps=${this._framerate}`);
+
+        args.push(...this._mediaPaths);
 
         this._proc = Gio.Subprocess.new(
             args, 

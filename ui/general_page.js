@@ -22,8 +22,8 @@ class LLSGeneralPage extends Adw.PreferencesPage {
 
         const group = new Adw.PreferencesGroup();
         group.add(this._buildPathRow());
+        group.add(this._buildPhotoDurationRow());
         group.add(this._buildScalingRow());
-        group.add(this._buildVolumeRow());
         group.add(this._buildLoopRow());
         group.add(this._buildBatteryRow());
         this.add(group);
@@ -50,7 +50,7 @@ class LLSGeneralPage extends Adw.PreferencesPage {
     _buildScalingRow() {
         const row = new Adw.ComboRow({
             title: 'Scaling mode',
-            subtitle: 'How the video is scaled to fit the screen',
+            subtitle: 'How the image is scaled to fit the screen',
             model: new Gtk.StringList({
                 strings: ['Stretch', 'Fit', 'Cover'],
             }),
@@ -64,32 +64,33 @@ class LLSGeneralPage extends Adw.PreferencesPage {
         return row;
     }
 
-    _buildVolumeRow() {
+    _buildPhotoDurationRow() {
         const row = new Adw.SpinRow({
-            title: 'Volume',
+            title: 'Photo duration',
+            subtitle: 'How long each photo stays on screen',
             adjustment: new Gtk.Adjustment({
-                lower: 0,
-                upper: 100,
+                lower: 1,
+                upper: 3600,
                 step_increment: 1,
-                value: this._settings.get_int(Keys.AUDIO_VOLUME),
+                value: this._settings.get_int(Keys.PHOTO_DURATION),
             }),
         });
 
         row.add_suffix(new Gtk.Label({
-            label: '%',
+            label: 's',
             valign: Gtk.Align.CENTER,
             css_classes: ['dim-label'],
         }));
 
         row.connect('notify::value', r => {
-            this._settings.set_int(Keys.AUDIO_VOLUME, r.get_value());
+            this._settings.set_int(Keys.PHOTO_DURATION, r.get_value());
         });
 
         return row;
     }
 
     _buildLoopRow() {
-        const row = new Adw.SwitchRow({ title: 'Loop video' });
+        const row = new Adw.SwitchRow({ title: 'Loop media' });
         this._settings.bind(Keys.LOOPED, row, 'active', Gio.SettingsBindFlags.DEFAULT);
         return row;
     }
@@ -104,7 +105,7 @@ class LLSGeneralPage extends Adw.PreferencesPage {
         const path = this._settings.get_string(Keys.VIDEO_PATH);
 
         const row = new Adw.ActionRow({
-            title: 'File',
+            title: 'Image folder',
             subtitle: path !== '' ? path : 'None',
         });
 
@@ -115,56 +116,40 @@ class LLSGeneralPage extends Adw.PreferencesPage {
 
         row.activatable_widget = button;
         row.add_suffix(button);
-        row.connect('activated', () => this._openFileDialog(row));
+        row.connect('activated', () => this._openFolderDialog(row));
 
         return row;
     }
 
-    _openFileDialog(row) {
-        const filters = new Gio.ListStore({ item_type: Gtk.FileFilter });
+    _openFolderDialog(row) {
+        const dialog = new Gtk.FileDialog({ title: 'Select Image Folder' });
 
-        const allFilter = new Gtk.FileFilter();
-        allFilter.set_name('Video and GIF files');
-        allFilter.add_mime_type('video/*');
-        allFilter.add_mime_type('image/gif');
-
-        // Separate filters so the user can narrow down if needed.
-        const videoFilter = new Gtk.FileFilter();
-        videoFilter.set_name('Video files');
-        videoFilter.add_mime_type('video/*');
-
-        const gifFilter = new Gtk.FileFilter();
-        gifFilter.set_name('GIF images');
-        gifFilter.add_mime_type('image/gif');
-
-        filters.append(allFilter);
-        filters.append(videoFilter);
-        filters.append(gifFilter);
-
-        const dialog = new Gtk.FileDialog({ title: 'Select Video or GIF File' });
-        dialog.set_filters(filters);
-
-        const videoPath = this._settings.get_string(Keys.VIDEO_PATH);
-        if (videoPath) {
-            const file = Gio.File.new_for_path(videoPath);
-            const parent = file.get_parent();
-            if (parent)
-                dialog.set_initial_folder(parent);
+        const selectedPath = this._settings.get_string(Keys.VIDEO_PATH);
+        if (selectedPath) {
+            const file = Gio.File.new_for_path(selectedPath);
+            const type = file.query_file_type(Gio.FileQueryInfoFlags.NONE, null);
+            if (type === Gio.FileType.DIRECTORY)
+                dialog.set_initial_folder(file);
+            else {
+                const parent = file.get_parent();
+                if (parent)
+                    dialog.set_initial_folder(parent);
+            }
         }
 
         const window = row.get_root();
-        dialog.open(window, null, (d, result) => {
+        dialog.select_folder(window, null, (d, result) => {
             try {
-                const file = d.open_finish(result);
-                if (file) {
-                    row.subtitle = file.get_path();
-                    this._settings.set_string(Keys.VIDEO_PATH, file.get_path());
+                const folder = d.select_folder_finish(result);
+                if (folder) {
+                    row.subtitle = folder.get_path();
+                    this._settings.set_string(Keys.VIDEO_PATH, folder.get_path());
                 } else {
                     row.subtitle = 'None';
                     this._settings.set_string(Keys.VIDEO_PATH, '');
                 }
             } catch (e) {
-                logError(`Error selecting file: ${e}`);
+                logError(`Error selecting folder: ${e}`);
             }
         });
     }

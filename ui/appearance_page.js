@@ -1,5 +1,4 @@
 import Adw from 'gi://Adw';
-import Gio from 'gi://Gio';
 import Gtk from 'gi://Gtk';
 import GObject from 'gi://GObject';
 
@@ -20,16 +19,6 @@ class LLSAppearancePage extends Adw.PreferencesPage {
 
     _buildGroup() {
         const group = new Adw.PreferencesGroup();
-
-        const changeFramerateRow = this._buildChangeFramerateRow();
-        const fpsRow = this._buildFpsRow();
-
-        group.add(changeFramerateRow);
-        group.add(fpsRow);
-
-        const toggleFpsRow = () => fpsRow.set_visible(changeFramerateRow.active);
-        toggleFpsRow();
-        changeFramerateRow.connect('notify::active', toggleFpsRow);
 
         group.add(this._buildFadeInRow());
 
@@ -55,43 +44,10 @@ class LLSAppearancePage extends Adw.PreferencesPage {
         return group;
     }
 
-    _buildChangeFramerateRow() {
-        const row = new Adw.SwitchRow({
-            title: 'Change framerate',
-            subtitle: 'This may cause artifacts and performance issues due to conversion overhead',
-        });
-        this._settings.bind(Keys.USE_VIDEORATE, row, 'active', Gio.SettingsBindFlags.DEFAULT);
-        return row;
-    }
-
-    _buildFpsRow() {
-        const row = new Adw.SpinRow({
-            title: 'Framerate',
-            adjustment: new Gtk.Adjustment({
-                lower: 1,
-                upper: 120,
-                step_increment: 1,
-                value: this._settings.get_int(Keys.FRAMERATE),
-            }),
-        });
-
-        row.add_suffix(new Gtk.Label({
-            label: 'fps',
-            valign: Gtk.Align.CENTER,
-            css_classes: ['dim-label'],
-        }));
-
-        row.connect('notify::value', r => {
-            this._settings.set_int(Keys.FRAMERATE, r.get_value());
-        });
-
-        return row;
-    }
-
     _buildFadeInRow() {
         const row = new Adw.SpinRow({
             title: 'Fade in',
-            subtitle: 'Video fade-in animation duration',
+            subtitle: 'Fade-in animation duration',
             adjustment: new Gtk.Adjustment({
                 lower: 0,
                 upper: 600 * 1000,

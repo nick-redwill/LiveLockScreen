@@ -12,13 +12,13 @@ class LLSDependencyErrorPage extends Adw.PreferencesPage {
 
         const group = new Adw.PreferencesGroup({
             title: 'Missing dependencies',
-            description: 'Live Lock Screen needs a playback backend to work. MPV is recommended.',
+            description: 'Live Lock Screen needs a playback backend to load photos. MPV is recommended.',
         });
 
         const mpvRow = new Adw.ActionRow({
             title: 'MPV backend (recommended)',
             subtitle:
-                `Better reliability, GIF support, and smoother playback.\n\n` +
+                `Better reliability and smoother slideshow playback.\n\n` +
                 `Install MPV for your distribution:\n` +
                 `  • Fedora/RHEL: dnf install mpv\n` +
                 `  • Ubuntu/Debian: apt install mpv\n` +
@@ -31,6 +31,10 @@ class LLSDependencyErrorPage extends Adw.PreferencesPage {
             title: 'GStreamer backend',
             subtitle:
                 `Alternatively, you can use the GStreamer backend.\n\n` +
+                `For photo decoding, also install libav codecs:\n` +
+                `  • Fedora/RHEL: gstreamer1-plugin-libav\n` +
+                `  • Ubuntu/Debian: gstreamer1.0-libav\n` +
+                `  • Arch: gst-libav\n\n` +
                 `Install the GStreamer GTK4 plugin for your distribution:\n` +
                 `  • Fedora/RHEL: gstreamer1-plugin-gtk4\n` +
                 `  • Ubuntu (24.10+)/Debian: gstreamer1.0-gtk4\n` +

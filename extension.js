@@ -54,9 +54,15 @@ export default class LockscreenExtension extends Extension {
     }
 
     async _setupLock() {
-        const videoPath = this._settings.get_string(Keys.VIDEO_PATH);
-        if (!videoPath) {
-            logWarn('Video not set, falling back');
+        const sourcePath = this._settings.get_string(Keys.VIDEO_PATH);
+        if (!sourcePath) {
+            logWarn('Image folder not set, falling back');
+            return;
+        }
+
+        const mediaPaths = this._resolveMediaPaths(sourcePath);
+        if (mediaPaths.length === 0) {
+            logWarn(`No supported images found in selected path: ${sourcePath}`);
             return;
         }
         
@@ -70,6 +76,8 @@ export default class LockscreenExtension extends Extension {
         const loop = this._settings.get_boolean(Keys.LOOPED);
         const useVideorate = this._settings.get_boolean(Keys.USE_VIDEORATE);
         const framerate = this._settings.get_int(Keys.FRAMERATE);
+        const photoDuration = this._settings.get_int(Keys.PHOTO_DURATION);
+        const scalingMode = this._settings.get_int(Keys.SCALING_MODE);
         const colorAccurate = this._settings.get_boolean(Keys.DEBUG_USE_COLOR_ACCURATE);
 
         const forceGst = this._settings.get_boolean(Keys.DEBUG_FORCE_GST);
@@ -95,10 +103,15 @@ export default class LockscreenExtension extends Extension {
             return;
         }
 
+        if (cls === GstPlayerProcess && mediaPaths.length > 1)
+            logWarn('GStreamer backend can only display one photo; using the first image found');
+
         this._player = new cls({
             playerPath: this.path + '/external/run.js',
-            videoPath,
-            scalingMode: this._scalingMode,
+            videoPath: mediaPaths[0],
+            mediaPaths,
+            photoDuration,
+            scalingMode,
             loop,
             volume,
             useVideorate,
@@ -108,6 +121,82 @@ export default class LockscreenExtension extends Extension {
 
         await this._player.run();
         await this._onPlayerInit();
+    }
+
+    _resolveMediaPaths(path) {
+        let type;
+        const file = Gio.File.new_for_path(path);
+        try {
+            type = file.query_file_type(Gio.FileQueryInfoFlags.NONE, null);
+        } catch (e) {
+            logWarn(`Failed to inspect selected path "${path}": ${e}`);
+            return [];
+        }
+
+        if (type === Gio.FileType.DIRECTORY)
+            return this._findImagesInDirectory(file);
+
+        if (type === Gio.FileType.REGULAR && this._isSupportedImageFile(path))
+            return [path];
+
+        return [];
+    }
+
+    _findImagesInDirectory(rootDir) {
+        const results = [];
+        const stack = [rootDir];
+
+        while (stack.length > 0) {
+            const dir = stack.pop();
+            let enumerator = null;
+
+            try {
+                enumerator = dir.enumerate_children(
+                    'standard::name,standard::type',
+                    Gio.FileQueryInfoFlags.NOFOLLOW_SYMLINKS,
+                    null
+                );
+            } catch (e) {
+                logWarn(`Unable to read directory "${dir.get_path()}": ${e}`);
+                continue;
+            }
+
+            const subDirs = [];
+
+            try {
+                let info = null;
+                while ((info = enumerator.next_file(null)) !== null) {
+                    const type = info.get_file_type();
+                    const child = enumerator.get_child(info);
+
+                    if (type === Gio.FileType.DIRECTORY) {
+                        subDirs.push(child);
+                        continue;
+                    }
+
+                    if (type !== Gio.FileType.REGULAR)
+                        continue;
+
+                    const childPath = child.get_path();
+                    if (childPath && this._isSupportedImageFile(childPath))
+                        results.push(childPath);
+                }
+            } finally {
+                try { enumerator.close(null); } catch (_) {}
+            }
+
+            subDirs.sort((a, b) => (a.get_basename() ?? '').localeCompare(b.get_basename() ?? ''));
+            for (let i = subDirs.length - 1; i >= 0; i--)
+                stack.push(subDirs[i]);
+        }
+
+        results.sort();
+        return results;
+    }
+
+    _isSupportedImageFile(path) {
+        const ext = path.split('.').pop()?.toLowerCase();
+        return ['jpg', 'jpeg', 'png', 'gif', 'webp', 'bmp', 'tif', 'tiff'].includes(ext);
     }
 
     async _onPlayerInit() {

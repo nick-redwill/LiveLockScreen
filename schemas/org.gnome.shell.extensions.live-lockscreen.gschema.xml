@@ -6,7 +6,12 @@
         </key>
         <key name="background-video-path" type="s">
             <default>""</default>
-            <summary>Path to background video</summary>
+            <summary>Path to background image folder</summary>
+        </key>
+        <key name="background-photo-duration-seconds" type="i">
+            <range min="1" max="3600" />
+            <default>10</default>
+            <summary>How long each photo is displayed in slideshow mode</summary>
         </key>
         <key name="background-video-scaling-mode" type="i">
             <range min="0" max="2" />
@@ -49,11 +54,11 @@
 
         <key name="prompt-pause-video" type="b">
             <default>false</default>
-            <summary>Whether to pause the video on password prompt</summary>
+            <summary>Whether to pause the slideshow on password prompt</summary>
         </key>
         <key name="prompt-grayscale" type="b">
             <default>false</default>
-            <summary>Whether to grayscale the video on password prompt</summary>
+            <summary>Whether to grayscale the slideshow on password prompt</summary>
         </key>
         <key name="prompt-change-blur" type="b">
             <default>false</default>
@@ -63,17 +68,17 @@
         <key name="prompt-blur-radius" type="i">
             <range min="0" max="100" />
             <default>20</default>
-            <summary>Background video blur radius on password prompt</summary>
+            <summary>Background slideshow blur radius on password prompt</summary>
         </key>
         <key name="prompt-blur-brightness" type="d">
             <range min="0" max="1" />
             <default>0.65</default>
-            <summary>Background video brightness on password prompt</summary>
+            <summary>Background slideshow brightness on password prompt</summary>
         </key>
         <key name="prompt-blur-anim-duration" type="i">
             <range min="0" max="600000" />
             <default>300</default>
-            <summary>Background video blur change animation duration</summary>
+            <summary>Background slideshow blur change animation duration</summary>
         </key>
 
         <key name="debug-force-gst" type="b">

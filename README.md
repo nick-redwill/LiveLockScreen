@@ -1,6 +1,6 @@
 <p align="center">
-  <img src="https://img.shields.io/github/stars/nick-redwill/LiveLockScreen">
-  <img src="https://img.shields.io/github/license/nick-redwill/LiveLockScreen">
+  <img src="https://img.shields.io/github/stars/rmacordeiro/LiveLockScreen">
+  <img src="https://img.shields.io/github/license/rmacordeiro/LiveLockScreen">
   <img alt="GNOME Shell" src="https://img.shields.io/badge/GNOME_Shell-46%2B-4A86CF?logo=gnome&logoColor=white"/>
   <img src="https://img.shields.io/badge/status-active-success">
 </p>
@@ -11,11 +11,7 @@
 
 # Live Lock Screen
 
-A GNOME Shell extension that lets you set any video/GIF as your lock screen background.
-
-> ⚠️ On recent NVIDIA drivers, prolonged lock sessions may trigger a kernel-side memory leak that can lead to system-wide OOM events or crashes. This appears to be a driver issue rather than a bug in the extension.
-
-> ⚠️ If you are having issues with current version you may check out legacy branch however it is highly recommended to stick with new versions for better performance.
+A GNOME Shell extension that lets you set images as your lock screen background.
 
 ## Design Philosophy
 
@@ -28,35 +24,16 @@ It is designed to be simple, lightweight, and reliable.
 
 If you're looking for more advanced lock screen or desktop customization, you may want to explore alternative extensions or check out some forks of this project.
 
-## Important notice
-
-Up until version **4.0.0**, the extension relied solely on GStreamer for video playback.
-Starting from that version, MPV is the main and recommended playback backend.
-
-GStreamer remains available as a fallback for now (you can force its use in the Debug section),
-but the end goal is to remove it from the extension entirely.
-
-More info about the reasoning behind this decision can be found in issue #25.
-
-If you experience problems or bugs with MPV playback, please feel free to report them.
-
 ## Features
 
-- 🎬 Play any video and GIF file as the lock screen background
+- 🖼️ Play photos from a selected folder (recursive scan)
 - 🔁 Loop support
-- 🎨 Video scaling modes (cover, fit, stretch)
-- 🔲 Transparent video support (RGBA)
+- 🎨 Slideshow scaling modes (cover, fit, stretch)
 - ⏸️ Automatic pause/play on suspend and wake
 - 🌌 Configurable fade-in animation
 - 🖥️ Multi-monitor support
 - 🌫️ Blur effect with adjustable radius and brightness
-- 🎞️ Configurable frame rate (1–120 FPS)
-- 🔊 Optional audio output with volume control and fade-in/out
-- 🔑 Interactive behavior on password prompt (blur/brightness change, video pause, grayscale)
-
-## Known Issues
-
-- Possible clicking/crackling sounds when pausing/playing video with audio
+- 🔑 Interactive behavior on password prompt (blur/brightness change, slideshow pause, grayscale)
 
 ## Installation
 
@@ -72,24 +49,26 @@ If you experience problems or bugs with MPV playback, please feel free to report
   
 ### Manual
 
-1. Clone the repository:
+1. Clone your fork and checkout the branch you want to test:
 
    ```bash
-   git clone https://github.com/nick-redwill/LiveLockScreen.git
+   git clone --branch <branch-name> --single-branch https://github.com/rmacordeiro/LiveLockScreen.git
+   cd LiveLockScreen
    ```
 2. Copy to your extensions folder:
 
    ```bash
-   cp -r LiveLockScreen ~/.local/share/gnome-shell/extensions/live-lockscreen@nick-redwill
+   cp -r LiveLockScreen ~/.local/share/gnome-shell/extensions/live-lockscreen@rmacordeiro
    ```
 3. Log out and back in, then enable the extension:
 
    ```bash
-   gnome-extensions enable live-lockscreen@nick-redwill
+   gnome-extensions enable live-lockscreen@rmacordeiro
    ```
-4. Open the extension preferences and select your file.
+4. Open the extension preferences and select an image folder.
+   The extension scans that folder recursively and uses images found in nested folders too.
 
-## Requirements
+## Requirements (photos)
 
 - GNOME Shell 46+
 - MPV (recommended):
@@ -103,19 +82,20 @@ If you experience problems or bugs with MPV playback, please feel free to report
   # Arch
   sudo pacman -S mpv
   ```
+  MPV handles image decoding and slideshow playback.
 
 or alternatively:
 
-- GStreamer with good/bad plugins:
+- GStreamer with image decoders:
   ```bash
     # Fedora
-    sudo dnf install gstreamer1-plugins-good gstreamer1-plugins-bad-free gstreamer1-plugins-ugly gstreamer1-plugins-bad-free-extras
+    sudo dnf install gstreamer1-plugins-good gstreamer1-plugins-bad-free gstreamer1-plugins-ugly gstreamer1-plugins-bad-free-extras gstreamer1-plugin-libav
 
     # Ubuntu/Debian
-    sudo apt install gstreamer1.0-plugins-good gstreamer1.0-plugins-bad gstreamer1.0-plugins-ugly
+    sudo apt install gstreamer1.0-plugins-good gstreamer1.0-plugins-bad gstreamer1.0-plugins-ugly gstreamer1.0-libav
 
     # Arch
-    sudo pacman -S gst-plugins-good gst-plugins-bad gst-plugins-ugly
+    sudo pacman -S gst-plugins-good gst-plugins-bad gst-plugins-ugly gst-libav
   ```
 - GStreamer GTK4 video sink (`gtk4paintablesink`):
   ```bash
@@ -137,7 +117,7 @@ or alternatively:
 If you enjoy this extension, consider buying me a tea 🍵 (I’m not really a coffee person :D)
 
 <p align="center">
-  <a href="https://www.buymeacoffee.com/nick_redwill">
+  <a href="https://www.buymeacoffee.com/rmacordeiro">
     <img src="https://github.com/user-attachments/assets/3b58a7fc-e605-4742-94e9-0bf3144c5021" width="200"/>
   </a>
 </p>

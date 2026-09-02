@@ -1,5 +1,5 @@
 {
-  "description": "A GNOME Shell extension that lets you set any video as your lock screen background.",
+  "description": "A GNOME Shell extension that lets you set images as your lock screen background.",
   "name": "Live Lock Screen",
   "session-modes": [
     "unlock-dialog"
@@ -13,9 +13,9 @@
     "50"
   ],
   "donations": {
-    "buymeacoffee": "nick_redwill"
+    "buymeacoffee": "rmacordeiro"
   },
-  "url": "https://github.com/nick-redwill/LiveLockScreen",
-  "uuid": "live-lockscreen@nick-redwill",
-  "version-name": "4.0.0"
+  "url": "https://github.com/rmacordeiro/LiveLockScreen",
+  "uuid": "live-lockscreen@rmacordeiro",
+  "version-name": "1.0.0"
 }
