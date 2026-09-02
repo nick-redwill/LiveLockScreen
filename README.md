@@ -35,10 +35,6 @@ If you're looking for more advanced lock screen or desktop customization, you ma
 - 🌫️ Blur effect with adjustable radius and brightness
 - 🔑 Interactive behavior on password prompt (blur/brightness change, slideshow pause, grayscale)
 
-## Known Issues
-
-- Fallback GStreamer backend displays only the first discovered image
-
 ## Installation
 
 ### Install from GNOME Extensions
