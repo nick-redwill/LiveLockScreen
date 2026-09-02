@@ -42,21 +42,18 @@ If you experience problems or bugs with MPV playback, please feel free to report
 
 ## Features
 
-- 🎬 Play any video and GIF file as the lock screen background
+- 🖼️ Play photos from a selected folder (recursive scan)
 - 🔁 Loop support
-- 🎨 Video scaling modes (cover, fit, stretch)
-- 🔲 Transparent video support (RGBA)
+- 🎨 Slideshow scaling modes (cover, fit, stretch)
 - ⏸️ Automatic pause/play on suspend and wake
 - 🌌 Configurable fade-in animation
 - 🖥️ Multi-monitor support
 - 🌫️ Blur effect with adjustable radius and brightness
-- 🎞️ Configurable frame rate (1–120 FPS)
-- 🔊 Optional audio output with volume control and fade-in/out
-- 🔑 Interactive behavior on password prompt (blur/brightness change, video pause, grayscale)
+- 🔑 Interactive behavior on password prompt (blur/brightness change, slideshow pause, grayscale)
 
 ## Known Issues
 
-- Possible clicking/crackling sounds when pausing/playing video with audio
+- Fallback GStreamer backend displays only the first discovered image
 
 ## Installation
 
@@ -91,7 +88,7 @@ If you experience problems or bugs with MPV playback, please feel free to report
 4. Open the extension preferences and select an image folder.
    The extension scans that folder recursively and uses images found in nested folders too.
 
-## Requirements
+## Requirements (photos)
 
 - GNOME Shell 46+
 - MPV (recommended):
@@ -105,19 +102,20 @@ If you experience problems or bugs with MPV playback, please feel free to report
   # Arch
   sudo pacman -S mpv
   ```
+  MPV handles image decoding and slideshow playback.
 
 or alternatively:
 
-- GStreamer with good/bad plugins:
+- GStreamer with image decoders:
   ```bash
     # Fedora
-    sudo dnf install gstreamer1-plugins-good gstreamer1-plugins-bad-free gstreamer1-plugins-ugly gstreamer1-plugins-bad-free-extras
+    sudo dnf install gstreamer1-plugins-good gstreamer1-plugins-bad-free gstreamer1-plugins-ugly gstreamer1-plugins-bad-free-extras gstreamer1-plugin-libav
 
     # Ubuntu/Debian
-    sudo apt install gstreamer1.0-plugins-good gstreamer1.0-plugins-bad gstreamer1.0-plugins-ugly
+    sudo apt install gstreamer1.0-plugins-good gstreamer1.0-plugins-bad gstreamer1.0-plugins-ugly gstreamer1.0-libav
 
     # Arch
-    sudo pacman -S gst-plugins-good gst-plugins-bad gst-plugins-ugly
+    sudo pacman -S gst-plugins-good gst-plugins-bad gst-plugins-ugly gst-libav
   ```
 - GStreamer GTK4 video sink (`gtk4paintablesink`):
   ```bash

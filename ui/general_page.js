@@ -22,8 +22,8 @@ class LLSGeneralPage extends Adw.PreferencesPage {
 
         const group = new Adw.PreferencesGroup();
         group.add(this._buildPathRow());
+        group.add(this._buildPhotoDurationRow());
         group.add(this._buildScalingRow());
-        group.add(this._buildVolumeRow());
         group.add(this._buildLoopRow());
         group.add(this._buildBatteryRow());
         this.add(group);
@@ -64,25 +64,26 @@ class LLSGeneralPage extends Adw.PreferencesPage {
         return row;
     }
 
-    _buildVolumeRow() {
+    _buildPhotoDurationRow() {
         const row = new Adw.SpinRow({
-            title: 'Volume',
+            title: 'Photo duration',
+            subtitle: 'How long each photo stays on screen',
             adjustment: new Gtk.Adjustment({
-                lower: 0,
-                upper: 100,
+                lower: 1,
+                upper: 3600,
                 step_increment: 1,
-                value: this._settings.get_int(Keys.AUDIO_VOLUME),
+                value: this._settings.get_int(Keys.PHOTO_DURATION),
             }),
         });
 
         row.add_suffix(new Gtk.Label({
-            label: '%',
+            label: 's',
             valign: Gtk.Align.CENTER,
             css_classes: ['dim-label'],
         }));
 
         row.connect('notify::value', r => {
-            this._settings.set_int(Keys.AUDIO_VOLUME, r.get_value());
+            this._settings.set_int(Keys.PHOTO_DURATION, r.get_value());
         });
 
         return row;

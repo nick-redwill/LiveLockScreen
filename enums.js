@@ -2,6 +2,7 @@ export const Keys = {
     DISABLE_ON_BATTERY: "general-disable-on-battery",
 
     VIDEO_PATH: "background-video-path",
+    PHOTO_DURATION: "background-photo-duration-seconds",
     SCALING_MODE: "background-video-scaling-mode",
     USE_VIDEORATE: "background-video-use-videorate",
     FRAMERATE: "background-video-framerate",

@@ -60,8 +60,8 @@ export default class LockscreenExtension extends Extension {
             return;
         }
 
-        const mediaPath = this._resolveMediaPath(sourcePath);
-        if (!mediaPath) {
+        const mediaPaths = this._resolveMediaPaths(sourcePath);
+        if (mediaPaths.length === 0) {
             logWarn(`No supported images found in selected path: ${sourcePath}`);
             return;
         }
@@ -76,6 +76,7 @@ export default class LockscreenExtension extends Extension {
         const loop = this._settings.get_boolean(Keys.LOOPED);
         const useVideorate = this._settings.get_boolean(Keys.USE_VIDEORATE);
         const framerate = this._settings.get_int(Keys.FRAMERATE);
+        const photoDuration = this._settings.get_int(Keys.PHOTO_DURATION);
         const scalingMode = this._settings.get_int(Keys.SCALING_MODE);
         const colorAccurate = this._settings.get_boolean(Keys.DEBUG_USE_COLOR_ACCURATE);
 
@@ -102,9 +103,14 @@ export default class LockscreenExtension extends Extension {
             return;
         }
 
+        if (cls === GstPlayerProcess && mediaPaths.length > 1)
+            logWarn('GStreamer backend can only display one photo; using the first image found');
+
         this._player = new cls({
             playerPath: this.path + '/external/run.js',
-            videoPath: mediaPath,
+            videoPath: mediaPaths[0],
+            mediaPaths,
+            photoDuration,
             scalingMode,
             loop,
             volume,
@@ -117,26 +123,27 @@ export default class LockscreenExtension extends Extension {
         await this._onPlayerInit();
     }
 
-    _resolveMediaPath(path) {
+    _resolveMediaPaths(path) {
         let type;
         const file = Gio.File.new_for_path(path);
         try {
             type = file.query_file_type(Gio.FileQueryInfoFlags.NONE, null);
         } catch (e) {
             logWarn(`Failed to inspect selected path "${path}": ${e}`);
-            return null;
+            return [];
         }
 
         if (type === Gio.FileType.DIRECTORY)
-            return this._findFirstImageInDirectory(file);
+            return this._findImagesInDirectory(file);
 
         if (type === Gio.FileType.REGULAR && this._isSupportedImageFile(path))
-            return path;
+            return [path];
 
-        return null;
+        return [];
     }
 
-    _findFirstImageInDirectory(rootDir) {
+    _findImagesInDirectory(rootDir) {
+        const results = [];
         const stack = [rootDir];
 
         while (stack.length > 0) {
@@ -154,7 +161,6 @@ export default class LockscreenExtension extends Extension {
                 continue;
             }
 
-            const imagePaths = [];
             const subDirs = [];
 
             try {
@@ -173,22 +179,19 @@ export default class LockscreenExtension extends Extension {
 
                     const childPath = child.get_path();
                     if (childPath && this._isSupportedImageFile(childPath))
-                        imagePaths.push(childPath);
+                        results.push(childPath);
                 }
             } finally {
                 try { enumerator.close(null); } catch (_) {}
             }
-
-            imagePaths.sort();
-            if (imagePaths.length > 0)
-                return imagePaths[0];
 
             subDirs.sort((a, b) => (a.get_basename() ?? '').localeCompare(b.get_basename() ?? ''));
             for (let i = subDirs.length - 1; i >= 0; i--)
                 stack.push(subDirs[i]);
         }
 
-        return null;
+        results.sort();
+        return results;
     }
 
     _isSupportedImageFile(path) {
