@@ -1,5 +1,7 @@
 export const Keys = {
     DISABLE_ON_BATTERY: 'general-disable-on-battery',
+    ENABLE_UNBLANK: 'enable-unblank',
+    UNBLANK_ON_AC_ONLY: 'unblank-on-ac-only',
 
     IMAGE_PATH: 'background-image-path',
     PHOTO_DURATION: 'background-photo-duration-seconds',

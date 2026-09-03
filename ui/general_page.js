@@ -25,6 +25,14 @@ class ScreenSaverGeneralPage extends Adw.PreferencesPage {
         group.add(this._buildScalingRow());
         group.add(this._buildLoopRow());
         group.add(this._buildBatteryRow());
+        const keepScreenOnRow = this._buildKeepScreenOnRow();
+        const keepScreenOnAcOnlyRow = this._buildKeepScreenOnAcOnlyRow();
+        keepScreenOnAcOnlyRow.set_sensitive(keepScreenOnRow.active);
+        keepScreenOnRow.connect('notify::active', row => {
+            keepScreenOnAcOnlyRow.set_sensitive(row.active);
+        });
+        group.add(keepScreenOnRow);
+        group.add(keepScreenOnAcOnlyRow);
         this.add(group);
     }
 
@@ -79,6 +87,24 @@ class ScreenSaverGeneralPage extends Adw.PreferencesPage {
     _buildBatteryRow() {
         const row = new Adw.SwitchRow({ title: 'Disable on battery' });
         this._settings.bind(Keys.DISABLE_ON_BATTERY, row, 'active', Gio.SettingsBindFlags.DEFAULT);
+        return row;
+    }
+
+    _buildKeepScreenOnRow() {
+        const row = new Adw.SwitchRow({
+            title: 'Keep screen on',
+            subtitle: 'Prevent the screen from immediately turning off when locked. The screen will still turn off after the normal timeout duration set in system settings.',
+        });
+        this._settings.bind(Keys.ENABLE_UNBLANK, row, 'active', Gio.SettingsBindFlags.DEFAULT);
+        return row;
+    }
+
+    _buildKeepScreenOnAcOnlyRow() {
+        const row = new Adw.SwitchRow({
+            title: 'Only on AC power',
+            subtitle: 'Apply Keep screen on only while the device is plugged in.',
+        });
+        this._settings.bind(Keys.UNBLANK_ON_AC_ONLY, row, 'active', Gio.SettingsBindFlags.DEFAULT);
         return row;
     }
 

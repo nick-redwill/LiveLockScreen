@@ -4,6 +4,14 @@
             <default>false</default>
             <summary>Whether to disable the extension when on battery</summary>
         </key>
+        <key name="enable-unblank" type="b">
+            <default>true</default>
+            <summary>Prevent the screen from immediately turning off when locked</summary>
+        </key>
+        <key name="unblank-on-ac-only" type="b">
+            <default>false</default>
+            <summary>Only keep the screen on while the device is not on battery power</summary>
+        </key>
         <key name="background-image-path" type="s">
             <default>""</default>
             <summary>Path to the image folder</summary>

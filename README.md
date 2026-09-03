@@ -29,6 +29,7 @@ It is designed to be simple, lightweight, and reliable.
 - 🔁 Loop support
 - 🎨 Slideshow scaling modes (cover, fit, stretch)
 - ⏸️ Automatic pause/play on suspend and wake
+- 🔒 Optional keep-screen-on behavior after manual lock, while still respecting the normal idle timeout
 - 🌌 Configurable fade-in animation
 - 🖥️ Multi-monitor support
 - 🌫️ Blur effect with adjustable radius and brightness
