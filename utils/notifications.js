@@ -3,7 +3,7 @@ import * as MessageTray from 'resource:///org/gnome/shell/ui/messageTray.js';
 
 export function sendErrorNotification(message) {
     const source = new MessageTray.Source({
-        title: 'Live Lock Screen Extension',
+        title: 'ScreenSaver',
         iconName: 'dialog-error-symbolic',
     });
 
@@ -11,7 +11,7 @@ export function sendErrorNotification(message) {
 
     const notification = new MessageTray.Notification({
         source,
-        title: 'Live Lock Screen Extension',
+        title: 'ScreenSaver',
         body: message,
         urgency: MessageTray.Urgency.HIGH,
     });

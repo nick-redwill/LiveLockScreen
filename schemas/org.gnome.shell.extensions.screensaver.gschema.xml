@@ -1,0 +1,69 @@
+<schemalist>
+    <schema id="org.gnome.shell.extensions.screensaver" path="/org/gnome/shell/extensions/screensaver/">
+        <key name="general-disable-on-battery" type="b">
+            <default>false</default>
+            <summary>Whether to disable the extension when on battery</summary>
+        </key>
+        <key name="background-image-path" type="s">
+            <default>""</default>
+            <summary>Path to the image folder</summary>
+        </key>
+        <key name="background-photo-duration-seconds" type="i">
+            <range min="1" max="3600" />
+            <default>10</default>
+            <summary>How long each image is displayed in slideshow mode</summary>
+        </key>
+        <key name="background-image-scaling-mode" type="i">
+            <range min="0" max="2" />
+            <default>0</default>
+            <summary>Background image scaling mode</summary>
+        </key>
+        <key name="background-image-blur-radius" type="i">
+            <range min="0" max="100" />
+            <default>0</default>
+            <summary>Background image blur radius</summary>
+        </key>
+        <key name="background-image-blur-brightness" type="d">
+            <range min="0" max="1" />
+            <default>0.65</default>
+            <summary>Background image brightness</summary>
+        </key>
+        <key name="background-image-looped" type="b">
+            <default>true</default>
+            <summary>Whether the slideshow repeats</summary>
+        </key>
+        <key name="background-fade-in-duration" type="i">
+            <range min="0" max="600000" />
+            <default>500</default>
+            <summary>Background fade-in animation duration</summary>
+        </key>
+
+        <key name="prompt-pause-slideshow" type="b">
+            <default>false</default>
+            <summary>Whether to pause the slideshow on password prompt</summary>
+        </key>
+        <key name="prompt-grayscale" type="b">
+            <default>false</default>
+            <summary>Whether to grayscale the slideshow on password prompt</summary>
+        </key>
+        <key name="prompt-change-blur" type="b">
+            <default>false</default>
+            <summary>Whether to change the blur value on password prompt</summary>
+        </key>
+        <key name="prompt-blur-radius" type="i">
+            <range min="0" max="100" />
+            <default>20</default>
+            <summary>Background slideshow blur radius on password prompt</summary>
+        </key>
+        <key name="prompt-blur-brightness" type="d">
+            <range min="0" max="1" />
+            <default>0.65</default>
+            <summary>Background slideshow brightness on password prompt</summary>
+        </key>
+        <key name="prompt-blur-anim-duration" type="i">
+            <range min="0" max="600000" />
+            <default>300</default>
+            <summary>Background slideshow blur change animation duration</summary>
+        </key>
+    </schema>
+</schemalist>

@@ -1,11 +1,11 @@
 export function logInfo(text) {
-    console.log("LiveLockScreen: " + text);
+    console.log(`ScreenSaver: ${text}`);
 }
 
 export function logWarn(text) {
-    console.warn("LiveLockScreen: " + text);
+    console.warn(`ScreenSaver: ${text}`);
 }
 
 export function logError(text) {
-    console.error("LiveLockScreen: " + text);
+    console.error(`ScreenSaver: ${text}`);
 }

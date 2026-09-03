@@ -1,10 +1,10 @@
 {
-  "description": "A GNOME Shell extension that lets you set images as your lock screen background.",
-  "name": "Live Lock Screen",
+  "description": "A GNOME Shell extension that rotates images as your lock screen background.",
+  "name": "ScreenSaver",
   "session-modes": [
     "unlock-dialog"
   ],
-  "settings-schema": "org.gnome.shell.extensions.live-lockscreen",
+  "settings-schema": "org.gnome.shell.extensions.screensaver",
   "shell-version": [
     "46",
     "47",
@@ -16,6 +16,6 @@
     "buymeacoffee": "rmacordeiro"
   },
   "url": "https://github.com/rmacordeiro/LiveLockScreen",
-  "uuid": "live-lockscreen@rmacordeiro",
+  "uuid": "screensaver@rmacordeiro",
   "version-name": "1.0.0"
 }

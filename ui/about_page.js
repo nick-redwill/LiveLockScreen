@@ -1,16 +1,16 @@
-import Adw from "gi://Adw";
-import Gtk from "gi://Gtk";
-import Gio from "gi://Gio";
-import GLib from "gi://GLib";
-import GObject from "gi://GObject";
+import Adw from 'gi://Adw';
+import Gtk from 'gi://Gtk';
+import Gio from 'gi://Gio';
+import GLib from 'gi://GLib';
+import GObject from 'gi://GObject';
 
 export var AboutPage = GObject.registerClass(
-class LLSAboutPage extends Adw.PreferencesPage {
+class ScreenSaverAboutPage extends Adw.PreferencesPage {
     _init(metadata, path) {
         super._init({
-            title: "About",
-            icon_name: "help-about-symbolic",
-            name: "AboutPage",
+            title: 'About',
+            icon_name: 'help-about-symbolic',
+            name: 'AboutPage',
         });
 
         this._metadata = metadata;
@@ -28,7 +28,7 @@ class LLSAboutPage extends Adw.PreferencesPage {
             selectable: false,
             focusable: false,
         });
-        row.add_css_class("no-activatable-frame");
+        row.add_css_class('no-activatable-frame');
 
         const box = new Gtk.Box({
             orientation: Gtk.Orientation.VERTICAL,
@@ -39,29 +39,29 @@ class LLSAboutPage extends Adw.PreferencesPage {
         });
 
         const logo = Gtk.Picture.new_for_filename(
-            GLib.build_filenamev([this._path, "icon.png"]),
+            GLib.build_filenamev([this._path, 'icon.png']),
         );
         logo.set_size_request(96, 96);
-        logo.add_css_class("icon-dropshadow");
+        logo.add_css_class('icon-dropshadow');
         box.append(logo);
 
         const name = new Gtk.Label({
-            label: this._metadata.name ?? "Live Lockscreen",
-            css_classes: ["title-2"],
+            label: this._metadata.name ?? 'ScreenSaver',
+            css_classes: ['title-2'],
             margin_top: 8,
         });
         box.append(name);
 
         const version = new Gtk.Label({
-            label: `Version ${this._metadata["version-name"] ?? "—"}`,
-            css_classes: ["dim-label"],
+            label: `Version ${this._metadata['version-name'] ?? '—'}`,
+            css_classes: ['dim-label'],
         });
         box.append(version);
 
         const description = new Gtk.Label({
             label:
                 this._metadata.description ??
-                "Play images as your GNOME lock screen background.",
+                'Rotate images as your GNOME lock screen background.',
             wrap: true,
             justify: Gtk.Justification.CENTER,
             margin_top: 8,
@@ -77,29 +77,26 @@ class LLSAboutPage extends Adw.PreferencesPage {
     }
 
     _buildLinksGroup() {
-        const group = new Adw.PreferencesGroup({ title: "Links" });
+        const group = new Adw.PreferencesGroup({ title: 'Links' });
 
         const links = [
             {
-                title: "Source Code",
-                subtitle: "View the project on GitHub",
-                icon: "code-symbolic",
-                url: this._metadata.url ?? "https://github.com/",
+                title: 'Source Code',
+                subtitle: 'View the project on GitHub',
+                icon: 'code-symbolic',
+                url: this._metadata.url ?? 'https://github.com/',
             },
             {
-                title: "Report a Bug",
-                subtitle: "Open an issue on the bug tracker",
-                icon: "bug-symbolic",
-                url:
-                    (this._metadata.url ?? "https://github.com/") +
-                    "/issues",
+                title: 'Report a Bug',
+                subtitle: 'Open an issue on the bug tracker',
+                icon: 'bug-symbolic',
+                url: `${this._metadata.url ?? 'https://github.com/'}/issues`,
             },
             {
-                title: "Donate",
-                subtitle: "Support the developer",
-                icon: "emblem-favorite-symbolic",
-                // hardcoded for reliability
-                url: "https://buymeacoffee.com/rmacordeiro", 
+                title: 'Donate',
+                subtitle: 'Support the developer',
+                icon: 'emblem-favorite-symbolic',
+                url: 'https://buymeacoffee.com/rmacordeiro',
             },
         ];
 
@@ -116,15 +113,16 @@ class LLSAboutPage extends Adw.PreferencesPage {
             activatable: true,
         });
 
+        row.add_prefix(new Gtk.Image({ icon_name: iconName }));
         row.add_suffix(
             new Gtk.Image({
-                icon_name: "adw-external-link-symbolic",
-                css_classes: ["dim-label"],
+                icon_name: 'adw-external-link-symbolic',
+                css_classes: ['dim-label'],
                 valign: Gtk.Align.CENTER,
             }),
         );
 
-        row.connect("activated", () => {
+        row.connect('activated', () => {
             Gio.AppInfo.launch_default_for_uri(url, null);
         });
 
