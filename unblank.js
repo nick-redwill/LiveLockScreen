@@ -3,6 +3,8 @@ import GLib from 'gi://GLib';
 
 import * as Main from 'resource:///org/gnome/shell/ui/main.js';
 
+import { Keys } from './enums.js';
+
 const MANUAL_FADE_TIME = 300; // mirrors screenShield.js
 
 const UPowerIface = `<node>
@@ -44,8 +46,8 @@ export class UnblankManager {
         );
 
         this._settings.connectObject(
-            'changed::enable-unblank', () => this._sync(),
-            'changed::unblank-on-ac-only', () => this._sync(),
+            `changed::${Keys.ENABLE_UNBLANK}`, () => this._sync(),
+            `changed::${Keys.UNBLANK_ON_AC_ONLY}`, () => this._sync(),
             this
         );
 
@@ -53,14 +55,14 @@ export class UnblankManager {
     }
 
     _isUnblankMode() {
-        const acOnly = this._settings.get_boolean('unblank-on-ac-only');
+        const acOnly = this._settings.get_boolean(Keys.UNBLANK_ON_AC_ONLY);
         return !(acOnly && this._upowerProxy?.OnBattery);
     }
 
     _sync() {
         this._cancelTimer();
 
-        if (this._settings.get_boolean('enable-unblank') && this._isUnblankMode())
+        if (this._settings.get_boolean(Keys.ENABLE_UNBLANK) && this._isUnblankMode())
             Main.screenShield._activateFade = this._patchedActivateFade.bind(this);
         else
             this._restore();

@@ -1,6 +1,5 @@
 import * as Main from 'resource:///org/gnome/shell/ui/main.js';
 import * as LoginManager from 'resource:///org/gnome/shell/misc/loginManager.js';
-import * as MessageTray from 'resource:///org/gnome/shell/ui/messageTray.js';
 
 import { Extension, InjectionManager } from 'resource:///org/gnome/shell/extensions/extension.js';
 
@@ -13,6 +12,7 @@ import GObject from 'gi://GObject';
 
 import { Keys, ScalingMode } from './enums.js';
 import { MpvPlayerProcess } from './core/mpv_player_process.js';
+import { UnblankManager } from './unblank.js';
 
 import { isOnBattery } from './utils/battery.js';
 import { SHELL_VERSION } from './utils/shell_version.js';
@@ -25,14 +25,13 @@ import { sendErrorNotification } from './utils/notifications.js';
 const MAX_DIALOG_INJECT_ATTEMPTS = 100;
 const DIALOG_INJECT_INTERVAL = 100;
 const WINDOW_TIMEOUT = 10000;
-const LOCK_SCREEN_BLACKOUT_DELAY = 10 * 60 * 1000;
-const MANUAL_BLACKOUT_FADE_TIME = 300;
 const SUPPORTED_IMAGE_EXTENSIONS = ['jpg', 'jpeg', 'png', 'gif', 'webp', 'bmp', 'tif', 'tiff'];
 
 export default class ScreenSaverExtension extends Extension {
     enable() {
         this._resetLockState();
         this._settings = this.getSettings();
+        this._unblankManager = new UnblankManager(this);
 
         this._setupLock().catch(err => {
             logError(err);
@@ -54,7 +53,7 @@ export default class ScreenSaverExtension extends Extension {
         this._injectRetryId = 0;
         this._injectAttempts = 0;
         this._blurEffectTimeoutId = 0;
-        this._lockScreenBlackoutTimeoutId = 0;
+        this._unblankManager = null;
     }
 
     async _setupLock() {
@@ -295,63 +294,7 @@ export default class ScreenSaverExtension extends Extension {
             }
         }
 
-        this._injectionManager.overrideMethod(Main.screenShield, '_lockScreenShown', original => {
-            const self = this;
-            return function(params) {
-                self._clearLockScreenBlackoutTimeout();
-
-                this._hidePointerUntilMotion();
-                this._lockScreenState = MessageTray.State.SHOWN;
-
-                if (params.fadeToBlack) {
-                    self._lockScreenBlackoutTimeoutId = GLib.timeout_add(
-                        GLib.PRIORITY_DEFAULT,
-                        LOCK_SCREEN_BLACKOUT_DELAY,
-                        () => {
-                            self._lockScreenBlackoutTimeoutId = 0;
-
-                            if (!this.active || !this.locked)
-                                return GLib.SOURCE_REMOVE;
-
-                            if (params.animateFade)
-                                this._activateFade(this._shortLightbox, MANUAL_BLACKOUT_FADE_TIME);
-                            else
-                                this._activateFade(this._shortLightbox, 0);
-
-                            return GLib.SOURCE_REMOVE;
-                        }
-                    );
-                } else {
-                    this._setActive(true);
-                }
-
-                this.emit('lock-screen-shown');
-            };
-        });
-        this._injectionManager.overrideMethod(Main.screenShield, '_wakeUpScreen', original => {
-            const self = this;
-            return function(...args) {
-                self._clearLockScreenBlackoutTimeout();
-                return original.call(this, ...args);
-            };
-        });
-        this._injectionManager.overrideMethod(Main.screenShield, 'deactivate', original => {
-            const self = this;
-            return function(...args) {
-                self._clearLockScreenBlackoutTimeout();
-                return original.call(this, ...args);
-            };
-        });
-
         dialog._updateBackgrounds();
-    }
-
-    _clearLockScreenBlackoutTimeout() {
-        if (!this._lockScreenBlackoutTimeoutId)
-            return;
-
-        GLib.source_remove(this._lockScreenBlackoutTimeoutId);
-        this._lockScreenBlackoutTimeoutId = 0;
     }
 
     _onPromptShow() {
@@ -536,7 +479,6 @@ export default class ScreenSaverExtension extends Extension {
             GLib.source_remove(this._blurEffectTimeoutId);
             this._blurEffectTimeoutId = 0;
         }
-        this._clearLockScreenBlackoutTimeout();
         this._injectAttempts = 0;
 
         Main.screenShield._dialog._swipeTracker?.disconnectObject(this);
@@ -550,6 +492,9 @@ export default class ScreenSaverExtension extends Extension {
 
         this._injectionManager?.clear();
         this._injectionManager = null;
+
+        this._unblankManager?.destroy();
+        this._unblankManager = null;
 
         this._loginManager?.disconnectObject(this);
 
