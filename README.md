@@ -33,7 +33,7 @@ It is designed to be simple, lightweight, and reliable.
 - 🌌 Configurable fade-in animation
 - 🖥️ Multi-monitor support
 - 🌫️ Blur effect with adjustable radius and brightness
-- 🔑 Interactive behavior on password prompt (blur/brightness change, slideshow pause, grayscale)
+- 🔑 Interactive behavior on password prompt (blur/brightness change, grayscale)
 
 ## Installation
 

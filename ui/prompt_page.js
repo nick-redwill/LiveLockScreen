@@ -20,7 +20,6 @@ class ScreenSaverPromptPage extends Adw.PreferencesPage {
             description: 'Customize behavior when the password prompt appears',
         });
 
-        group.add(this._buildPauseRow());
         group.add(this._buildGrayscaleRow());
 
         const changeBlurRow = this._buildChangeBlurRow();
@@ -43,12 +42,6 @@ class ScreenSaverPromptPage extends Adw.PreferencesPage {
         changeBlurRow.connect('notify::active', toggleBlurRows);
 
         this.add(group);
-    }
-
-    _buildPauseRow() {
-        const row = new Adw.SwitchRow({ title: 'Pause slideshow' });
-        this._settings.bind(Keys.PROMPT_PAUSE, row, 'active', Gio.SettingsBindFlags.DEFAULT);
-        return row;
     }
 
     _buildGrayscaleRow() {
