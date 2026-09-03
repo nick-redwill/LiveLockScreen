@@ -13,11 +13,6 @@
 
 A GNOME Shell extension that rotates images as your lock screen background.
 
-## Design Philosophy
-
-> "Do one thing and do it well."  
-> — Unix philosophy
-
 ScreenSaver focuses on a single goal: showing still images on the lock screen.
 
 It is designed to be simple, lightweight, and reliable.
@@ -114,6 +109,15 @@ Adjust `--image-display-duration=10` if you want to test a different slide durat
 - ScreenSaver uses mpv only.
 - The selected folder itself is scanned, not just its subfolders.
 - If only one supported image is found, mpv will keep showing that image and loop it when looping is enabled.
+
+## Thank you
+
+<p align="left">
+  <a href="https://extensions.gnome.org/away/https%253A%252F%252Fgithub.com%252Fnick-redwill%252FLiveLockScreen">
+  </a>
+  <a href="https://extensions.gnome.org/away/https%253A%252F%252Fgithub.com%252Frinzler69-wastaken%252Fwack-sonoma-lockscreen">
+  </a>
+</p>
 
 ## Support
 
