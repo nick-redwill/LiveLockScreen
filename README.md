@@ -6,27 +6,26 @@
 </p>
 
 <p align="center">
-  <img src="icon.png" width="128" height="128" alt="Live Lock Screen icon">
+  <img src="icon.png" width="128" height="128" alt="ScreenSaver icon">
 </p>
 
-# Live Lock Screen
+# ScreenSaver
 
-A GNOME Shell extension that lets you set images as your lock screen background.
+A GNOME Shell extension that rotates images as your lock screen background.
 
 ## Design Philosophy
 
 > "Do one thing and do it well."  
 > — Unix philosophy
 
-This extension focuses on a single goal: playing multimedia on the lock screen.
+ScreenSaver focuses on a single goal: showing still images on the lock screen.
 
 It is designed to be simple, lightweight, and reliable.
 
-If you're looking for more advanced lock screen or desktop customization, you may want to explore alternative extensions or check out some forks of this project.
-
 ## Features
 
-- 🖼️ Play photos from a selected folder (recursive scan)
+- 🖼️ Rotate images from a selected folder in random order
+- 📁 Recursive image discovery across the selected folder and nested folders
 - 🔁 Loop support
 - 🎨 Slideshow scaling modes (cover, fit, stretch)
 - ⏸️ Automatic pause/play on suspend and wake
@@ -44,34 +43,34 @@ If you're looking for more advanced lock screen or desktop customization, you ma
 </a>
 
 > ⚠️ Due to the review process, the version on GNOME Extensions may lag behind the latest code in this repository.  
-> For the newest features, it is recommended to install manually from this branch.  
-> If you’d like to try the latest (possibly unstable) features, you can switch to the `experimental` branch.
-  
+> For the newest features, it is recommended to install manually from this branch.
+
 ### Manual
 
 1. Clone your fork and checkout the branch you want to test:
 
    ```bash
-   git clone --branch <branch-name> --single-branch https://github.com/rmacordeiro/LiveLockScreen.git
-   cd LiveLockScreen
+   git clone --branch <branch-name> --single-branch https://github.com/rmacordeiro/LiveLockScreen.git ScreenSaver
+   cd ScreenSaver
    ```
 2. Copy to your extensions folder:
 
    ```bash
-   cp -r LiveLockScreen ~/.local/share/gnome-shell/extensions/live-lockscreen@rmacordeiro
+   cp -r ScreenSaver ~/.local/share/gnome-shell/extensions/screensaver@rmacordeiro
    ```
-3. Log out and back in, then enable the extension:
+3. Compile the schema, log out and back in, then enable the extension:
 
    ```bash
-   gnome-extensions enable live-lockscreen@rmacordeiro
+   glib-compile-schemas schemas
+   gnome-extensions enable screensaver@rmacordeiro
    ```
-4. Open the extension preferences and select an image folder.
-   The extension scans that folder recursively and uses images found in nested folders too.
+4. Open the extension preferences and select the top-level image folder that should be scanned.
+   ScreenSaver will recursively scan that folder and all nested folders for supported images.
 
-## Requirements (photos)
+## Requirements
 
 - GNOME Shell 46+
-- MPV (recommended):
+- mpv:
   ```bash
   # Fedora
   sudo dnf install mpv
@@ -82,35 +81,38 @@ If you're looking for more advanced lock screen or desktop customization, you ma
   # Arch
   sudo pacman -S mpv
   ```
-  MPV handles image decoding and slideshow playback.
 
-or alternatively:
+## Supported image formats
 
-- GStreamer with image decoders:
-  ```bash
-    # Fedora
-    sudo dnf install gstreamer1-plugins-good gstreamer1-plugins-bad-free gstreamer1-plugins-ugly gstreamer1-plugins-bad-free-extras gstreamer1-plugin-libav
+ScreenSaver scans for files with these extensions:
 
-    # Ubuntu/Debian
-    sudo apt install gstreamer1.0-plugins-good gstreamer1.0-plugins-bad gstreamer1.0-plugins-ugly gstreamer1.0-libav
+- `.jpg`
+- `.jpeg`
+- `.png`
+- `.gif`
+- `.webp`
+- `.bmp`
+- `.tif`
+- `.tiff`
 
-    # Arch
-    sudo pacman -S gst-plugins-good gst-plugins-bad gst-plugins-ugly gst-libav
-  ```
-- GStreamer GTK4 video sink (`gtk4paintablesink`):
-  ```bash
-    # Fedora
-    sudo dnf install gstreamer1-plugin-gtk4
+## mpv test command
 
-    # Ubuntu 24.10+ / Debian (newer)
-    sudo apt install gstreamer1.0-gtk4
+Use this command to verify that mpv finds the same files ScreenSaver expects and rotates them on screen:
 
-    # Ubuntu 24.04 — not available as a package.
-    # Either build from source or download from launchpad
+```bash
+find "/absolute/path/to/your/image-folder" -type f \
+  \( -iname '*.jpg' -o -iname '*.jpeg' -o -iname '*.png' -o -iname '*.gif' -o -iname '*.webp' -o -iname '*.bmp' -o -iname '*.tif' -o -iname '*.tiff' \) \
+  | sort \
+  | mpv --no-audio --vo=gpu-next --keepaspect=no --keep-open=yes --image-display-duration=10 --shuffle --loop-playlist=inf --playlist=-
+```
 
-    # Arch
-    sudo pacman -S gst-plugin-gtk4
-  ```
+Adjust `--image-display-duration=10` if you want to test a different slide duration.
+
+## Notes
+
+- ScreenSaver uses mpv only; all GStreamer support has been removed.
+- The selected folder itself is scanned, not just its subfolders.
+- If only one supported image is found, mpv will keep showing that image and loop it when looping is enabled.
 
 ## Support
 

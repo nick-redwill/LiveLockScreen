@@ -6,7 +6,7 @@ import GObject from 'gi://GObject';
 import { Keys } from '../enums.js';
 
 export var PromptPage = GObject.registerClass(
-class LLSPromptPage extends Adw.PreferencesPage {
+class ScreenSaverPromptPage extends Adw.PreferencesPage {
     _init(settings) {
         super._init({
             title: 'Prompt',

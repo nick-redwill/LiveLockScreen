@@ -2,7 +2,7 @@ import Adw from 'gi://Adw';
 import GObject from 'gi://GObject';
 
 export var DependencyErrorPage = GObject.registerClass(
-class LLSDependencyErrorPage extends Adw.PreferencesPage {
+class ScreenSaverDependencyErrorPage extends Adw.PreferencesPage {
     _init() {
         super._init({
             title: 'Error',
@@ -11,42 +11,24 @@ class LLSDependencyErrorPage extends Adw.PreferencesPage {
         });
 
         const group = new Adw.PreferencesGroup({
-            title: 'Missing dependencies',
-            description: 'Live Lock Screen needs a playback backend to load photos. MPV is recommended.',
+            title: 'Missing dependency',
+            description: 'ScreenSaver requires mpv to load and rotate images on the lock screen.',
         });
 
         const mpvRow = new Adw.ActionRow({
-            title: 'MPV backend (recommended)',
+            title: 'Install mpv',
             subtitle:
-                `Better reliability and smoother slideshow playback.\n\n` +
-                `Install MPV for your distribution:\n` +
+                `ScreenSaver uses mpv for image decoding and slideshow playback.\n\n` +
+                `Install mpv for your distribution:\n` +
                 `  • Fedora/RHEL: dnf install mpv\n` +
                 `  • Ubuntu/Debian: apt install mpv\n` +
-                `  • Arch: pacman -S mpv`,
-            icon_name: 'starred-symbolic',
-        });
-        mpvRow.add_css_class('accent');
-
-        const gstreamerRow = new Adw.ActionRow({
-            title: 'GStreamer backend',
-            subtitle:
-                `Alternatively, you can use the GStreamer backend.\n\n` +
-                `For photo decoding, also install libav codecs:\n` +
-                `  • Fedora/RHEL: gstreamer1-plugin-libav\n` +
-                `  • Ubuntu/Debian: gstreamer1.0-libav\n` +
-                `  • Arch: gst-libav\n\n` +
-                `Install the GStreamer GTK4 plugin for your distribution:\n` +
-                `  • Fedora/RHEL: gstreamer1-plugin-gtk4\n` +
-                `  • Ubuntu (24.10+)/Debian: gstreamer1.0-gtk4\n` +
-                `  • Arch: gst-plugin-gtk4\n\n` +
-                `See README.md for more information.`,
+                `  • Arch: pacman -S mpv\n\n` +
+                `See README.md for the full test command.`,
             icon_name: 'dialog-error-symbolic',
         });
-        gstreamerRow.add_css_class('error');
+        mpvRow.add_css_class('error');
 
         group.add(mpvRow);
-        group.add(gstreamerRow);
-
         this.add(group);
     }
 });

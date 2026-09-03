@@ -1,30 +1,21 @@
 export const Keys = {
-    DISABLE_ON_BATTERY: "general-disable-on-battery",
+    DISABLE_ON_BATTERY: 'general-disable-on-battery',
 
-    VIDEO_PATH: "background-video-path",
-    PHOTO_DURATION: "background-photo-duration-seconds",
-    SCALING_MODE: "background-video-scaling-mode",
-    USE_VIDEORATE: "background-video-use-videorate",
-    FRAMERATE: "background-video-framerate",
-    LOOPED: "background-video-looped",
-    FADE_IN_DURATION: "background-fade-in-duration",
+    IMAGE_PATH: 'background-image-path',
+    PHOTO_DURATION: 'background-photo-duration-seconds',
+    SCALING_MODE: 'background-image-scaling-mode',
+    LOOPED: 'background-image-looped',
+    FADE_IN_DURATION: 'background-fade-in-duration',
 
-    BLUR_RADIUS: "background-video-blur-radius",
-    BLUR_BRIGHTNESS: "background-video-blur-brightness",
+    BLUR_RADIUS: 'background-image-blur-radius',
+    BLUR_BRIGHTNESS: 'background-image-blur-brightness',
 
-    AUDIO_VOLUME: "background-audio-volume",
-
-    PROMPT_PAUSE: "prompt-pause-video",
-    PROMPT_GRAYSCALE: "prompt-grayscale",
-    PROMPT_CHANGE_BLUR: "prompt-change-blur",
-    PROMPT_BLUR_RADIUS: "prompt-blur-radius",
-    PROMPT_BLUR_BRIGHTNESS: "prompt-blur-brightness",
-    PROMPT_BLUR_ANIM_DURATION: "prompt-blur-anim-duration",
-
-    DEBUG_FORCE_GST: "debug-force-gst",
-    DEBUG_USE_COLOR_ACCURATE: "debug-use-color-accurate",
-    DEBUG_FORCE_FULLSCREEN: "debug-force-fullscreen",
-    DEBUG_FORCE_GIF_SUPPORT: "debug-force-gif-support",
+    PROMPT_PAUSE: 'prompt-pause-slideshow',
+    PROMPT_GRAYSCALE: 'prompt-grayscale',
+    PROMPT_CHANGE_BLUR: 'prompt-change-blur',
+    PROMPT_BLUR_RADIUS: 'prompt-blur-radius',
+    PROMPT_BLUR_BRIGHTNESS: 'prompt-blur-brightness',
+    PROMPT_BLUR_ANIM_DURATION: 'prompt-blur-anim-duration',
 };
 
 export const ScalingMode = {

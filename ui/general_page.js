@@ -7,7 +7,7 @@ import { Keys } from '../enums.js';
 import { logError } from '../utils/logging.js';
 
 export var GeneralPage = GObject.registerClass(
-class LLSGeneralPage extends Adw.PreferencesPage {
+class ScreenSaverGeneralPage extends Adw.PreferencesPage {
     _init(settings) {
         super._init({
             title: 'General',
@@ -16,11 +16,10 @@ class LLSGeneralPage extends Adw.PreferencesPage {
         });
 
         this._settings = settings;
-        this._forceGif = settings.get_boolean(Keys.DEBUG_FORCE_GIF_SUPPORT, false);
 
-        this.add(this._buildBackendNoticeGroup());
-
-        const group = new Adw.PreferencesGroup();
+        const group = new Adw.PreferencesGroup({
+            description: 'ScreenSaver scans the selected folder and all nested folders for supported image files, then rotates them randomly.',
+        });
         group.add(this._buildPathRow());
         group.add(this._buildPhotoDurationRow());
         group.add(this._buildScalingRow());
@@ -29,28 +28,10 @@ class LLSGeneralPage extends Adw.PreferencesPage {
         this.add(group);
     }
 
-    _buildBackendNoticeGroup() {
-        const group = new Adw.PreferencesGroup();
-
-        const row = new Adw.ActionRow({
-            title: 'GStreamer playback is being retired',
-            subtitle:
-                `Install MPV for better reliability and continued support.\n\n` +
-                `If you run into issues with MPV, please report them. ` +
-                `You can force GStreamer playback in debug settings in the meantime.\n\n` +
-                `More info in README.md.`,
-            icon_name: 'dialog-warning-symbolic',
-        });
-        row.add_css_class('warning');
-
-        group.add(row);
-        return group;
-    }
-
     _buildScalingRow() {
         const row = new Adw.ComboRow({
             title: 'Scaling mode',
-            subtitle: 'How the image is scaled to fit the screen',
+            subtitle: 'How each image is scaled to fit the screen',
             model: new Gtk.StringList({
                 strings: ['Stretch', 'Fit', 'Cover'],
             }),
@@ -66,8 +47,8 @@ class LLSGeneralPage extends Adw.PreferencesPage {
 
     _buildPhotoDurationRow() {
         const row = new Adw.SpinRow({
-            title: 'Photo duration',
-            subtitle: 'How long each photo stays on screen',
+            title: 'Image duration',
+            subtitle: 'How long each image stays on screen',
             adjustment: new Gtk.Adjustment({
                 lower: 1,
                 upper: 3600,
@@ -90,7 +71,7 @@ class LLSGeneralPage extends Adw.PreferencesPage {
     }
 
     _buildLoopRow() {
-        const row = new Adw.SwitchRow({ title: 'Loop media' });
+        const row = new Adw.SwitchRow({ title: 'Loop slideshow' });
         this._settings.bind(Keys.LOOPED, row, 'active', Gio.SettingsBindFlags.DEFAULT);
         return row;
     }
@@ -102,7 +83,7 @@ class LLSGeneralPage extends Adw.PreferencesPage {
     }
 
     _buildPathRow() {
-        const path = this._settings.get_string(Keys.VIDEO_PATH);
+        const path = this._settings.get_string(Keys.IMAGE_PATH);
 
         const row = new Adw.ActionRow({
             title: 'Image folder',
@@ -124,7 +105,7 @@ class LLSGeneralPage extends Adw.PreferencesPage {
     _openFolderDialog(row) {
         const dialog = new Gtk.FileDialog({ title: 'Select Image Folder' });
 
-        const selectedPath = this._settings.get_string(Keys.VIDEO_PATH);
+        const selectedPath = this._settings.get_string(Keys.IMAGE_PATH);
         if (selectedPath) {
             const file = Gio.File.new_for_path(selectedPath);
             const type = file.query_file_type(Gio.FileQueryInfoFlags.NONE, null);
@@ -143,10 +124,10 @@ class LLSGeneralPage extends Adw.PreferencesPage {
                 const folder = d.select_folder_finish(result);
                 if (folder) {
                     row.subtitle = folder.get_path();
-                    this._settings.set_string(Keys.VIDEO_PATH, folder.get_path());
+                    this._settings.set_string(Keys.IMAGE_PATH, folder.get_path());
                 } else {
                     row.subtitle = 'None';
-                    this._settings.set_string(Keys.VIDEO_PATH, '');
+                    this._settings.set_string(Keys.IMAGE_PATH, '');
                 }
             } catch (e) {
                 logError(`Error selecting folder: ${e}`);
