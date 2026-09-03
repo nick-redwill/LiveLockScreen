@@ -112,12 +112,10 @@ Adjust `--image-display-duration=10` if you want to test a different slide durat
 
 ## Thank you
 
-<p align="left">
-  <a href="https://extensions.gnome.org/away/https%253A%252F%252Fgithub.com%252Fnick-redwill%252FLiveLockScreen">
-  </a>
-  <a href="https://extensions.gnome.org/away/https%253A%252F%252Fgithub.com%252Frinzler69-wastaken%252Fwack-sonoma-lockscreen">
-  </a>
-</p>
+<a href="https://extensions.gnome.org/away/https%253A%252F%252Fgithub.com%252Fnick-redwill%252FLiveLockScreen">
+</a>
+<a href="https://extensions.gnome.org/away/https%253A%252F%252Fgithub.com%252Frinzler69-wastaken%252Fwack-sonoma-lockscreen">
+</a>
 
 ## Support
 
