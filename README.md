@@ -51,7 +51,7 @@ It is designed to be simple, lightweight, and reliable.
 1. Clone your fork and checkout the branch you want to test:
 
    ```bash
-   git clone --branch <branch-name> --single-branch https://github.com/rmacordeiro/LiveLockScreen.git ScreenSaver
+   git clone --branch <branch-name> --single-branch https://github.com/rmacordeiro/ScreenSaver.git ScreenSaver
    cd ScreenSaver
    ```
 2. Copy to your extensions folder:
@@ -111,7 +111,7 @@ Adjust `--image-display-duration=10` if you want to test a different slide durat
 
 ## Notes
 
-- ScreenSaver uses mpv only; all GStreamer support has been removed.
+- ScreenSaver uses mpv only.
 - The selected folder itself is scanned, not just its subfolders.
 - If only one supported image is found, mpv will keep showing that image and loop it when looping is enabled.
 
