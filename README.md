@@ -34,7 +34,7 @@ It is designed to be simple, lightweight, and reliable.
 
 ### Install from GNOME Extensions
 
-<a href="https://extensions.gnome.org/extension/9419/live-lock-screen/">
+<a href="https://extensions.gnome.org/extension/9419/screensaver/">
   <img src="https://github.com/user-attachments/assets/d15de748-11b8-4a85-ad34-ec7786547b3c" width="250" alt="Install from GNOME Extensions">
 </a>
 
