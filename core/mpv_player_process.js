@@ -36,6 +36,7 @@ export class MpvPlayerProcess {
         this._ipcOutStream = null;
         this._shuttingDown = false;
         this._reconnecting = false;
+        this._pauseOnFirstLoad = true;
 
         this._writeQueue = [];
         this._writing = false;
@@ -251,7 +252,10 @@ export class MpvPlayerProcess {
             }
 
             if (data.event === 'file-loaded') {
-                this._queueCommand('set_property', 'pause', 'yes');
+                if (this._pauseOnFirstLoad) {
+                    this._queueCommand('set_property', 'pause', 'yes');
+                    this._pauseOnFirstLoad = false;
+                }
                 this._queueCommand('get_property', 'video-params');
             }
         } catch (err) {
