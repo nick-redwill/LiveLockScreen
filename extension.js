@@ -183,7 +183,6 @@ export default class ScreenSaverExtension extends Extension {
         this._blurBrightness = this._settings.get_double(Keys.BLUR_BRIGHTNESS);
 
         this._promptSettings = {
-            [Keys.PROMPT_PAUSE]: this._settings.get_boolean(Keys.PROMPT_PAUSE),
             [Keys.PROMPT_GRAYSCALE]: this._settings.get_boolean(Keys.PROMPT_GRAYSCALE),
             [Keys.PROMPT_CHANGE_BLUR]: this._settings.get_boolean(Keys.PROMPT_CHANGE_BLUR),
             [Keys.PROMPT_BLUR_RADIUS]: this._settings.get_int(Keys.PROMPT_BLUR_RADIUS),
@@ -331,8 +330,6 @@ export default class ScreenSaverExtension extends Extension {
             });
         }
 
-        if (this._promptSettings[Keys.PROMPT_PAUSE])
-            this._player?.pause();
     }
 
     _onPromptHide() {
@@ -365,8 +362,6 @@ export default class ScreenSaverExtension extends Extension {
             });
         }
 
-        if (this._promptSettings[Keys.PROMPT_PAUSE])
-            this._player?.play();
     }
 
     _handleMonitor(monitorIndex) {

@@ -12,7 +12,6 @@ export const Keys = {
     BLUR_RADIUS: 'background-image-blur-radius',
     BLUR_BRIGHTNESS: 'background-image-blur-brightness',
 
-    PROMPT_PAUSE: 'prompt-pause-slideshow',
     PROMPT_GRAYSCALE: 'prompt-grayscale',
     PROMPT_CHANGE_BLUR: 'prompt-change-blur',
     PROMPT_BLUR_RADIUS: 'prompt-blur-radius',

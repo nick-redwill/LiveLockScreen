@@ -46,10 +46,6 @@
             <summary>Background fade-in animation duration</summary>
         </key>
 
-        <key name="prompt-pause-slideshow" type="b">
-            <default>false</default>
-            <summary>Whether to pause the slideshow on password prompt</summary>
-        </key>
         <key name="prompt-grayscale" type="b">
             <default>false</default>
             <summary>Whether to grayscale the slideshow on password prompt</summary>
