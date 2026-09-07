@@ -48,8 +48,6 @@ export default class ScreenSaverExtension extends Extension {
         this._promptShown = false;
         this._injectionManager = null;
         this._player = null;
-        this._tapAction = null;
-
         this._injectRetryId = 0;
         this._injectAttempts = 0;
         this._blurEffectTimeoutId = 0;
@@ -281,18 +279,6 @@ export default class ScreenSaverExtension extends Extension {
                 this._onPromptShow();
         }, this);
 
-        if (SHELL_VERSION < 49) {
-            const actions = dialog.get_actions();
-            const tapAction = actions.find(a => a.constructor.name.includes('TapAction'));
-            if (tapAction) {
-                dialog.remove_action(tapAction);
-
-                const newAction = new Clutter.TapAction();
-                newAction.connectObject('tap', dialog._showPrompt.bind(dialog), this);
-                dialog.add_action(newAction);
-            }
-        }
-
         dialog._updateBackgrounds();
     }
 
@@ -464,6 +450,8 @@ export default class ScreenSaverExtension extends Extension {
     }
 
     disable() {
+        // This extension needs unlock-dialog mode so it can keep controlling the
+        // lock screen background and prompt transitions while the session is locked.
         destroySleeps();
 
         if (this._injectRetryId) {
@@ -477,7 +465,6 @@ export default class ScreenSaverExtension extends Extension {
         this._injectAttempts = 0;
 
         Main.screenShield._dialog._swipeTracker?.disconnectObject(this);
-        this._tapAction?.disconnectObject(this);
 
         if (this._windowActor)
             this._windowActor.hide();
