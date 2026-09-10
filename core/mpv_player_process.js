@@ -7,8 +7,16 @@ import { sleep } from '../utils/base.js';
 const logErrorMpv = (msg) => logError(`MpvPlayerProcess: ${msg}`);
 const logWarnMpv = (msg) => logWarn(`MpvPlayerProcess: ${msg}`);
 
-const MpvError = (msg) => new Error(`MpvPlayerProcess: ${msg}`);
+class MpvError extends Error {
+  constructor(msg) {
+    super(`MpvPlayerProcess: ${msg}`);
+    this.name = 'MpvError';
 
+    if (Error.captureStackTrace) {
+      Error.captureStackTrace(this, MpvError);
+    }
+  }
+}
 Gio._promisify(Gio.SocketClient.prototype, 'connect_async', 'connect_finish');
 Gio._promisify(Gio.Subprocess.prototype, 'communicate_utf8_async', 'communicate_utf8_finish');
 Gio._promisify(Gio.DataInputStream.prototype, 'read_line_async', 'read_line_finish');
@@ -67,6 +75,7 @@ export class MpvPlayerProcess {
             'mpv', 
             `--input-ipc-server=${this._socketPath}`, 
             this._videoPath,
+            '--no-config',
             '--keepaspect=no',
             '--hwdec=auto',
             '--vo=gpu-next',

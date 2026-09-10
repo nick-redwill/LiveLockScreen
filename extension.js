@@ -463,7 +463,10 @@ export default class LockscreenExtension extends Extension {
         }
         this._injectAttempts = 0;
 
-        Main.screenShield._dialog._swipeTracker?.disconnectObject(this);
+        // Checking if the dialog even exists
+        if (Main.screenShield._dialog)
+            Main.screenShield._dialog._swipeTracker?.disconnectObject(this);
+        
         this._tapAction?.disconnectObject(this);
 
         if (this._windowActor) {
