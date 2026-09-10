@@ -10,12 +10,13 @@
     "47",
     "48",
     "49",
-    "50"
+    "50",
+    "51"
   ],
   "donations": {
     "buymeacoffee": "nick_redwill"
   },
   "url": "https://github.com/nick-redwill/LiveLockScreen",
   "uuid": "live-lockscreen@nick-redwill",
-  "version-name": "4.0.0"
+  "version-name": "4.0.1"
 }

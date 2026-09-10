@@ -107,6 +107,7 @@ class LLSGeneralPage extends Adw.PreferencesPage {
             title: 'File',
             subtitle: path !== '' ? path : 'None',
         });
+        row.set_use_markup(false);
 
         const button = new Adw.ButtonContent({
             icon_name: 'document-open-symbolic',
