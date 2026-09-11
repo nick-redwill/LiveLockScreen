@@ -151,6 +151,14 @@ export default class LockscreenExtension extends Extension {
 
         this._window = win
         this._windowActor = win.get_compositor_private();
+
+        this._window.connectObject('unmanaged', () => {
+            this._window = null;
+            this._windowActor = null;
+        }, this);
+        this._windowActor?.connectObject('destroy', () => {
+            this._windowActor = null;
+        }, this);
         
         //NOTE: On gnome 48 and lower this functions accepts 1 argument
         if (SHELL_VERSION > 48)
@@ -470,7 +478,16 @@ export default class LockscreenExtension extends Extension {
         this._tapAction?.disconnectObject(this);
 
         if (this._windowActor) {
-            this._windowActor.hide();
+            this._windowActor.disconnectObject(this);
+            try {
+                this._windowActor.hide();
+            } catch (_) {}
+            this._windowActor = null;
+        }
+
+        if (this._window) {
+            this._window.disconnectObject(this);
+            this._window = null;
         }
 
         this._player?.destroy();
