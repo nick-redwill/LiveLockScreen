@@ -442,7 +442,7 @@ export default class LockscreenExtension extends Extension {
         this._loginManager = LoginManager.getLoginManager();
         this._loginManager.connectObject('prepare-for-sleep', (_manager, aboutToSleep) => {
             if (!this._player) return;
-            aboutToSleep ? this._player.pause() : this._player.play();
+            aboutToSleep ? this._player.pauseImmediately() : this._player.play();
         }, this);
     }
 
