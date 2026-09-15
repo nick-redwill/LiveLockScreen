@@ -375,7 +375,6 @@ export class MpvPlayerProcess {
     pauseImmediately() {
         this._clearTransitionTimeout();
         this._queueCommand('set_property', 'pause', 'yes');
-        this._queueCommand('set_property', 'volume', 0);
         this._lastSettledGain = 0;
         this._fadeStartedAtMs = null;
     }
