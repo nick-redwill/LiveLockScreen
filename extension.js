@@ -153,8 +153,13 @@ export default class LockscreenExtension extends Extension {
         this._windowActor = win.get_compositor_private();
 
         this._window.connectObject('unmanaged', () => {
+            if (this._windowActor) {
+                const parent = this._windowActor.get_parent();
+                if (parent) parent.remove_child(this._windowActor);
+                global.window_group.add_child(this._windowActor);
+                this._windowActor = null;
+            }
             this._window = null;
-            this._windowActor = null;
         }, this);
         this._windowActor?.connectObject('destroy', () => {
             this._windowActor = null;
@@ -333,10 +338,18 @@ export default class LockscreenExtension extends Extension {
     }
 
     _handleMonitor(monitorIndex) {
-        if (this._player.shouldResize)
-            this._window.move_resize_frame(
-                true, 0, 0, this._player.w, this._player.h
-            );
+        if (!this._window || this._window.unmanaging || !this._windowActor)
+            return;
+
+        if (this._player?.shouldResize) {
+            try {
+                this._window.move_resize_frame(
+                    true, 0, 0, this._player.w, this._player.h
+                );
+            } catch (e) {
+                logWarn(`Failed to resize window: ${e}`);
+            }
+        }
 
         const isLastMonitor = monitorIndex === Main.layoutManager.monitors.length - 1;
         const monitor = Main.layoutManager.monitors[monitorIndex];
@@ -481,6 +494,9 @@ export default class LockscreenExtension extends Extension {
             this._windowActor.disconnectObject(this);
             try {
                 this._windowActor.hide();
+                const parent = this._windowActor.get_parent();
+                if (parent) parent.remove_child(this._windowActor);
+                global.window_group.add_child(this._windowActor);
             } catch (_) {}
             this._windowActor = null;
         }
