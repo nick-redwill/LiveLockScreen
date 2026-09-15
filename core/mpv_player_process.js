@@ -431,18 +431,12 @@ export class MpvPlayerProcess {
         this._cleanupIpc()
 
         if (this._proc) {
-            this._proc.send_signal(9); // SIGKILL
+            this._proc.force_exit();
             this._proc = null;
             this._pid = null;
         }
         
-        //NOTE: 
-        // proc.send_signal sometimes doesnt do the job
-        // thats why we use window.kill too
-        if (this._window) {
-           this._window.kill();
-           this._window = null;
-        }
+        this._window = null;
 
         this._removeSocketFile();
     }
