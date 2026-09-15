@@ -73,6 +73,7 @@ export class MpvPlayerProcess {
 
         const args = [
             'mpv', 
+            '--title=LiveLockScreen',
             `--input-ipc-server=${this._socketPath}`, 
             this._videoPath,
             '--no-config',
@@ -228,7 +229,7 @@ export class MpvPlayerProcess {
     }
 
     async _reconnectIpc() {
-        if (this._shuttingDown || this._reconnecting) return;
+        if (this._shuttingDown || this._reconnecting || !this._proc) return;
         this._reconnecting = true;
 
         this._cleanupIpc();
@@ -255,7 +256,8 @@ export class MpvPlayerProcess {
 
             if (line === null) {
                 logErrorMpv('ipc connection closed by mpv (EOF)');
-                this._reconnectIpc();
+                if (this._proc)
+                    this._reconnectIpc();
                 return;
             }
 
@@ -368,6 +370,14 @@ export class MpvPlayerProcess {
         this._fade('out', () => {
             this._queueCommand('set_property', 'pause', 'yes');
         });
+    }
+
+    pauseImmediately() {
+        this._clearTransitionTimeout();
+        this._queueCommand('set_property', 'pause', 'yes');
+        this._queueCommand('set_property', 'volume', 0);
+        this._lastSettledGain = 0;
+        this._fadeStartedAtMs = null;
     }
 
     async waitForWindow(timeoutMs) {
