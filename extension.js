@@ -153,12 +153,7 @@ export default class LockscreenExtension extends Extension {
         this._windowActor = win.get_compositor_private();
 
         this._window.connectObject('unmanaged', () => {
-            if (this._windowActor) {
-                const parent = this._windowActor.get_parent();
-                if (parent) parent.remove_child(this._windowActor);
-                global.window_group.add_child(this._windowActor);
-                this._windowActor = null;
-            }
+            this._resetWindowActor();
             this._window = null;
         }, this);
         this._windowActor?.connectObject('destroy', () => {
@@ -181,6 +176,24 @@ export default class LockscreenExtension extends Extension {
         await this._injectIntoDialog();
     }
 
+    _resetWindowActor() {
+        //NOTE: 
+        // This function doesnt destroy the window actor
+        // it just resets it to its initial state
+        // and also hides it for convinience
+        if (!this._windowActor) return;
+
+        this._windowActor.disconnectObject(this);
+        try {
+            this._windowActor.hide();
+        } catch (_) {}
+
+        const parent = this._windowActor.get_parent();
+        if (parent) parent.remove_child(this._windowActor);
+        global.window_group.add_child(this._windowActor);
+        this._windowActor = null;
+    }
+
     async _waitForFullLoad() {
         while (!Main.screenShield._dialog || this._player.w === 0) {
             if (this._injectAttempts >= MAX_DIALOG_INJECT_ATTEMPTS) {
@@ -200,7 +213,6 @@ export default class LockscreenExtension extends Extension {
 
     async _injectIntoDialog() {
         let dialog = await this._waitForFullLoad();
-
 
         this._injectionManager.overrideMethod(
             dialog, '_createBackground',
@@ -347,7 +359,7 @@ export default class LockscreenExtension extends Extension {
                     true, 0, 0, this._player.w, this._player.h
                 );
             } catch (e) {
-                logWarn(`Failed to resize window: ${e}`);
+                logError(`Failed to resize window: ${e}`);
             }
         }
 
@@ -493,17 +505,8 @@ export default class LockscreenExtension extends Extension {
             Main.screenShield._dialog._swipeTracker?.disconnectObject(this);
         
         this._tapAction?.disconnectObject(this);
-
-        if (this._windowActor) {
-            this._windowActor.disconnectObject(this);
-            try {
-                this._windowActor.hide();
-                const parent = this._windowActor.get_parent();
-                if (parent) parent.remove_child(this._windowActor);
-                global.window_group.add_child(this._windowActor);
-            } catch (_) {}
-            this._windowActor = null;
-        }
+            
+        this._resetWindowActor();
 
         if (this._window) {
             this._window.disconnectObject(this);
