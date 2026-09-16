@@ -466,7 +466,7 @@ export default class LockscreenExtension extends Extension {
 
             if (aboutToSleep)
                 this._player.pauseImmediately()
-            else if (aboutToSleep && !this._promptShown)
+            else if (!aboutToSleep && !this._promptShown)
                 this._player.play();
         }, this);
     }
