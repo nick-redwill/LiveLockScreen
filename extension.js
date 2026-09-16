@@ -244,6 +244,8 @@ export default class LockscreenExtension extends Extension {
                 };
             }
         );
+
+        this._connectFingerprintAuth(dialog);
         
         // Removing the existing signal to use our custom one
         const gtype = dialog._swipeTracker.constructor.$gtype;
@@ -276,7 +278,29 @@ export default class LockscreenExtension extends Extension {
 
         dialog._updateBackgrounds();
     }
-    
+
+    _connectFingerprintAuth(dialog) {
+        //NOTE: 
+        // I'll be honest, I have no idea if this works or not
+        // I dont have a fingerprint scanner to test
+        // But it should :) 
+
+        const authPrompt = dialog._authPrompt;
+        if (!authPrompt) {
+            logWarn('AuthPrompt not available, fingerprint detection skipped');
+            return;
+        }
+
+        // When a fingerprint verification message is shown (e.g. "Place your finger")
+        // treat it as a prompt being shown so blur/pause effects apply
+        authPrompt.connectObject(
+            'next', () => {
+                this._onPromptShow();
+            },
+            this
+        );
+    }
+
     _onPromptShow() {
         if (this._promptShown) return;
         this._promptShown = true;
@@ -501,8 +525,10 @@ export default class LockscreenExtension extends Extension {
         this._injectAttempts = 0;
 
         // Checking if the dialog even exists
-        if (Main.screenShield._dialog)
+        if (Main.screenShield._dialog) {
             Main.screenShield._dialog._swipeTracker?.disconnectObject(this);
+            Main.screenShield._dialog._authPrompt?.disconnectObject(this);
+        }
         
         this._tapAction?.disconnectObject(this);
             
