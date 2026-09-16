@@ -1,7 +1,7 @@
 <p align="center">
   <img src="https://img.shields.io/github/stars/nick-redwill/LiveLockScreen">
   <img src="https://img.shields.io/github/license/nick-redwill/LiveLockScreen">
-  <img src="https://img.shields.io/badge/GNOME%20Shell-46--50-blue">
+  <img alt="GNOME Shell" src="https://img.shields.io/badge/GNOME_Shell-46%2B-4A86CF?logo=gnome&logoColor=white"/>
   <img src="https://img.shields.io/badge/status-experimental-orange">
 </p>
 
