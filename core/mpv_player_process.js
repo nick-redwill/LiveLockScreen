@@ -73,6 +73,7 @@ export class MpvPlayerProcess {
 
         const args = [
             'mpv', 
+            '--title=LiveLockScreen',
             `--input-ipc-server=${this._socketPath}`, 
             this._videoPath,
             '--no-config',
@@ -228,7 +229,7 @@ export class MpvPlayerProcess {
     }
 
     async _reconnectIpc() {
-        if (this._shuttingDown || this._reconnecting) return;
+        if (this._shuttingDown || this._reconnecting || !this._proc) return;
         this._reconnecting = true;
 
         this._cleanupIpc();
@@ -255,7 +256,8 @@ export class MpvPlayerProcess {
 
             if (line === null) {
                 logErrorMpv('ipc connection closed by mpv (EOF)');
-                this._reconnectIpc();
+                if (this._proc)
+                    this._reconnectIpc();
                 return;
             }
 
@@ -370,6 +372,13 @@ export class MpvPlayerProcess {
         });
     }
 
+    pauseImmediately() {
+        this._clearTransitionTimeout();
+        this._queueCommand('set_property', 'pause', 'yes');
+        this._lastSettledGain = 0;
+        this._fadeStartedAtMs = null;
+    }
+
     async waitForWindow(timeoutMs) {
         return new Promise((resolve, reject) => {
             this._mapId = global.window_manager.connectObject(
@@ -422,18 +431,12 @@ export class MpvPlayerProcess {
         this._cleanupIpc()
 
         if (this._proc) {
-            this._proc.send_signal(9); // SIGKILL
+            this._proc.force_exit();
             this._proc = null;
             this._pid = null;
         }
         
-        //NOTE: 
-        // proc.send_signal sometimes doesnt do the job
-        // thats why we use window.kill too
-        if (this._window) {
-           this._window.kill();
-           this._window = null;
-        }
+        this._window = null;
 
         this._removeSocketFile();
     }

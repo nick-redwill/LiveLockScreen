@@ -151,6 +151,14 @@ export default class LockscreenExtension extends Extension {
 
         this._window = win
         this._windowActor = win.get_compositor_private();
+
+        this._window.connectObject('unmanaged', () => {
+            this._resetWindowActor();
+            this._window = null;
+        }, this);
+        this._windowActor?.connectObject('destroy', () => {
+            this._windowActor = null;
+        }, this);
         
         //NOTE: On gnome 48 and lower this functions accepts 1 argument
         if (SHELL_VERSION > 48)
@@ -166,6 +174,22 @@ export default class LockscreenExtension extends Extension {
         this._windowActor.opacity = 0;
 
         await this._injectIntoDialog();
+    }
+
+    _resetWindowActor() {
+        //NOTE: 
+        // This function doesnt destroy the window actor
+        // it just resets it to its initial state
+        // and also hides it for convinience
+        if (!this._windowActor) return;
+
+        this._windowActor.disconnectObject(this);
+        this._windowActor.hide();
+
+        const parent = this._windowActor.get_parent();
+        if (parent) parent.remove_child(this._windowActor);
+        global.window_group.add_child(this._windowActor);
+        this._windowActor = null;
     }
 
     async _waitForFullLoad() {
@@ -187,7 +211,6 @@ export default class LockscreenExtension extends Extension {
 
     async _injectIntoDialog() {
         let dialog = await this._waitForFullLoad();
-
 
         this._injectionManager.overrideMethod(
             dialog, '_createBackground',
@@ -219,6 +242,8 @@ export default class LockscreenExtension extends Extension {
                 };
             }
         );
+
+        this._connectFingerprintAuth(dialog);
         
         // Removing the existing signal to use our custom one
         const gtype = dialog._swipeTracker.constructor.$gtype;
@@ -251,7 +276,29 @@ export default class LockscreenExtension extends Extension {
 
         dialog._updateBackgrounds();
     }
-    
+
+    _connectFingerprintAuth(dialog) {
+        //NOTE: 
+        // I'll be honest, I have no idea if this works or not
+        // I dont have a fingerprint scanner to test
+        // But it should :) 
+
+        const authPrompt = dialog._authPrompt;
+        if (!authPrompt) {
+            logWarn('AuthPrompt not available, fingerprint detection skipped');
+            return;
+        }
+
+        // When a fingerprint verification message is shown (e.g. "Place your finger")
+        // treat it as a prompt being shown so blur/pause effects apply
+        authPrompt.connectObject(
+            'next', () => {
+                this._onPromptShow();
+            },
+            this
+        );
+    }
+
     _onPromptShow() {
         if (this._promptShown) return;
         this._promptShown = true;
@@ -325,10 +372,14 @@ export default class LockscreenExtension extends Extension {
     }
 
     _handleMonitor(monitorIndex) {
-        if (this._player.shouldResize)
+        if (!this._window || this._window.unmanaging || !this._windowActor)
+            return;
+
+        if (this._player?.shouldResize) {
             this._window.move_resize_frame(
                 true, 0, 0, this._player.w, this._player.h
             );
+        }
 
         const isLastMonitor = monitorIndex === Main.layoutManager.monitors.length - 1;
         const monitor = Main.layoutManager.monitors[monitorIndex];
@@ -442,7 +493,11 @@ export default class LockscreenExtension extends Extension {
         this._loginManager = LoginManager.getLoginManager();
         this._loginManager.connectObject('prepare-for-sleep', (_manager, aboutToSleep) => {
             if (!this._player) return;
-            aboutToSleep ? this._player.pause() : this._player.play();
+
+            if (aboutToSleep)
+                this._player.pauseImmediately()
+            else if (!aboutToSleep && !this._promptShown)
+                this._player.play();
         }, this);
     }
 
@@ -464,13 +519,18 @@ export default class LockscreenExtension extends Extension {
         this._injectAttempts = 0;
 
         // Checking if the dialog even exists
-        if (Main.screenShield._dialog)
+        if (Main.screenShield._dialog) {
             Main.screenShield._dialog._swipeTracker?.disconnectObject(this);
+            Main.screenShield._dialog._authPrompt?.disconnectObject(this);
+        }
         
         this._tapAction?.disconnectObject(this);
+            
+        this._resetWindowActor();
 
-        if (this._windowActor) {
-            this._windowActor.hide();
+        if (this._window) {
+            this._window.disconnectObject(this);
+            this._window = null;
         }
 
         this._player?.destroy();
