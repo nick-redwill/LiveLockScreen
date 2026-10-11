@@ -8,6 +8,27 @@
             <default>""</default>
             <summary>Path to background video</summary>
         </key>
+        <key name="background-source-mode" type="i">
+            <range min="0" max="2" />
+            <default>0</default>
+            <summary>Video source mode (0 = single file, 1 = random from folder, 2 = sequential from folder)</summary>
+        </key>
+        <key name="background-folder-path" type="s">
+            <default>""</default>
+            <summary>Folder containing videos for random/sequential mode</summary>
+        </key>
+        <key name="background-folder-recursive" type="b">
+            <default>false</default>
+            <summary>Whether to scan sub-folders of the video folder</summary>
+        </key>
+        <key name="background-avoid-repeat" type="b">
+            <default>true</default>
+            <summary>Avoid playing the same video twice in a row in random mode</summary>
+        </key>
+        <key name="background-last-played" type="s">
+            <default>""</default>
+            <summary>Last video played from the folder (internal state)</summary>
+        </key>
         <key name="background-video-scaling-mode" type="i">
             <range min="0" max="2" />
             <default>0</default>

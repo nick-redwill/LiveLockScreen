@@ -14,6 +14,7 @@ import { MpvPlayerProcess } from './core/mpv_player_process.js';
 import { GstPlayerProcess } from './core/gst_player_process.js';
 
 import { isOnBattery } from './utils/battery.js';
+import { pickVideo } from './utils/video_picker.js';
 import { SHELL_VERSION } from './utils/shell_version.js';
 import { logInfo, logWarn, logError } from './utils/logging.js';
 import { sleep, destroySleeps } from './utils/base.js';
@@ -54,17 +55,22 @@ export default class LockscreenExtension extends Extension {
     }
 
     async _setupLock() {
-        const videoPath = this._settings.get_string(Keys.VIDEO_PATH);
-        if (!videoPath) {
-            logWarn('Video not set, falling back');
-            return;
-        }
-        
         const disableOnBatter = this._settings.get_boolean(Keys.DISABLE_ON_BATTERY);
         if (disableOnBatter && await isOnBattery()) {
             logWarn('Skipping on battery');
             return;
         }
+        if (!this._settings)  // disabled (unlocked) while awaiting
+            return;
+
+        // Single file, or random/sequential pick from the chosen folder.
+        // Runs on every lock because the extension is enabled per lock session.
+        const videoPath = pickVideo(this._settings);
+        if (!videoPath) {
+            logWarn('No video available, falling back');
+            return;
+        }
+        this._scalingMode = this._settings.get_int(Keys.SCALING_MODE);
 
         const volume = this._settings.get_int(Keys.AUDIO_VOLUME) / 100;
         const loop = this._settings.get_boolean(Keys.LOOPED);

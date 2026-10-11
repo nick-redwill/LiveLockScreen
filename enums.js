@@ -2,6 +2,11 @@ export const Keys = {
     DISABLE_ON_BATTERY: "general-disable-on-battery",
 
     VIDEO_PATH: "background-video-path",
+    SOURCE_MODE: "background-source-mode",
+    FOLDER_PATH: "background-folder-path",
+    FOLDER_RECURSIVE: "background-folder-recursive",
+    AVOID_REPEAT: "background-avoid-repeat",
+    LAST_PLAYED: "background-last-played",
     SCALING_MODE: "background-video-scaling-mode",
     USE_VIDEORATE: "background-video-use-videorate",
     FRAMERATE: "background-video-framerate",
@@ -30,4 +35,10 @@ export const ScalingMode = {
     STRETCH: 0,
     FIT: 1,
     COVER: 2,
+};
+
+export const SourceMode = {
+    SINGLE: 0,
+    RANDOM: 1,
+    SEQUENTIAL: 2,
 };
