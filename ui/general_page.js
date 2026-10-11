@@ -3,7 +3,8 @@ import Gio from 'gi://Gio';
 import Gtk from 'gi://Gtk';
 import GObject from 'gi://GObject';
 
-import { Keys } from '../enums.js';
+import { Keys, SourceMode } from '../enums.js';
+import { listVideos } from '../utils/video_picker.js';
 import { logError } from '../utils/logging.js';
 
 export var GeneralPage = GObject.registerClass(
@@ -21,7 +22,16 @@ class LLSGeneralPage extends Adw.PreferencesPage {
         this.add(this._buildBackendNoticeGroup());
 
         const group = new Adw.PreferencesGroup();
-        group.add(this._buildPathRow());
+        group.add(this._buildSourceModeRow());
+        this._pathRow = this._buildPathRow();
+        this._folderRow = this._buildFolderRow();
+        this._recursiveRow = this._buildRecursiveRow();
+        this._avoidRepeatRow = this._buildAvoidRepeatRow();
+        group.add(this._pathRow);
+        group.add(this._folderRow);
+        group.add(this._recursiveRow);
+        group.add(this._avoidRepeatRow);
+        this._updateSourceVisibility();
         group.add(this._buildScalingRow());
         group.add(this._buildVolumeRow());
         group.add(this._buildLoopRow());
@@ -45,6 +55,107 @@ class LLSGeneralPage extends Adw.PreferencesPage {
 
         group.add(row);
         return group;
+    }
+
+    _buildSourceModeRow() {
+        const row = new Adw.ComboRow({
+            title: 'Video source',
+            subtitle: 'Play one fixed video, or pick one from a folder on every lock',
+            model: new Gtk.StringList({
+                strings: ['Single file', 'Random from folder', 'Sequential from folder'],
+            }),
+        });
+
+        row.set_selected(this._settings.get_int(Keys.SOURCE_MODE));
+        row.connect('notify::selected', r => {
+            this._settings.set_int(Keys.SOURCE_MODE, r.selected);
+            this._updateSourceVisibility();
+        });
+
+        return row;
+    }
+
+    _updateSourceVisibility() {
+        const mode = this._settings.get_int(Keys.SOURCE_MODE);
+        const folderMode = mode !== SourceMode.SINGLE;
+
+        this._pathRow.visible = !folderMode;
+        this._folderRow.visible = folderMode;
+        this._recursiveRow.visible = folderMode;
+        this._avoidRepeatRow.visible = mode === SourceMode.RANDOM;
+    }
+
+    _buildFolderRow() {
+        const row = new Adw.ActionRow({ title: 'Folder' });
+        row.set_use_markup(false);
+        this._refreshFolderSubtitle(row);
+
+        const button = new Adw.ButtonContent({
+            icon_name: 'folder-open-symbolic',
+            label: 'Browse',
+        });
+
+        row.activatable_widget = button;
+        row.add_suffix(button);
+        row.connect('activated', () => this._openFolderDialog(row));
+
+        return row;
+    }
+
+    _buildRecursiveRow() {
+        const row = new Adw.SwitchRow({
+            title: 'Include sub-folders',
+            subtitle: 'Scan up to 3 levels deep',
+        });
+        this._settings.bind(Keys.FOLDER_RECURSIVE, row, 'active', Gio.SettingsBindFlags.DEFAULT);
+        this._settings.connect(`changed::${Keys.FOLDER_RECURSIVE}`, () => {
+            this._refreshFolderSubtitle(this._folderRow);
+        });
+        return row;
+    }
+
+    _buildAvoidRepeatRow() {
+        const row = new Adw.SwitchRow({
+            title: 'Avoid repeating the last video',
+            subtitle: 'Never pick the same video twice in a row',
+        });
+        this._settings.bind(Keys.AVOID_REPEAT, row, 'active', Gio.SettingsBindFlags.DEFAULT);
+        return row;
+    }
+
+    _refreshFolderSubtitle(row) {
+        const folder = this._settings.get_string(Keys.FOLDER_PATH);
+        if (!folder) {
+            row.subtitle = 'None';
+            return;
+        }
+
+        const count = listVideos(
+            folder, this._settings.get_boolean(Keys.FOLDER_RECURSIVE)
+        ).length;
+        row.subtitle = `${folder}\n${count} video${count === 1 ? '' : 's'} found`;
+    }
+
+    _openFolderDialog(row) {
+        const dialog = new Gtk.FileDialog({ title: 'Select Video Folder' });
+
+        const current = this._settings.get_string(Keys.FOLDER_PATH);
+        if (current)
+            dialog.set_initial_folder(Gio.File.new_for_path(current));
+
+        dialog.select_folder(row.get_root(), null, (d, result) => {
+            try {
+                const folder = d.select_folder_finish(result);
+                if (folder) {
+                    this._settings.set_string(Keys.FOLDER_PATH, folder.get_path());
+                    this._refreshFolderSubtitle(row);
+                }
+            } catch (e) {
+                // Dismissing the dialog throws; only log real errors
+                if (!e.matches?.(Gtk.DialogError, Gtk.DialogError.DISMISSED))
+                    logError(`Error selecting folder: ${e}`);
+            }
+        });
     }
 
     _buildScalingRow() {

@@ -43,6 +43,7 @@ If you experience problems or bugs with MPV playback, please feel free to report
 ## Features
 
 - 🎬 Play any video and GIF file as the lock screen background
+- 🎲 Pick a video from a folder (random or sequential) on every lock
 - 🔁 Loop support
 - 🎨 Video scaling modes (cover, fit, stretch)
 - 🔲 Transparent video support (RGBA)
