@@ -4,7 +4,8 @@
 
 # Live Lock Screen
 
-**Set any video as your GNOME lock screen background.**
+**Bring your lock screen to life.**<br>
+Play videos and GIFs on the GNOME lock screen.
 
 <p>
   <img alt="GNOME Shell 47-50" src="https://img.shields.io/badge/GNOME_Shell-47--50-4A86CF?style=for-the-badge&logo=gnome&logoColor=white&labelColor=2B2B2B">
@@ -15,12 +16,10 @@
 
 <p>
   <a href="https://github.com/sponsors/nick-redwill"><img alt="Sponsor" src="https://img.shields.io/badge/Sponsor-EA4AAA?style=for-the-badge&logo=githubsponsors&logoColor=white"></a>
-  <a href="https://www.buymeacoffee.com/nick_redwill"><img alt="Buy me a tea" src="https://img.shields.io/badge/Buy_me_a_tea-FFDD00?style=for-the-badge&logo=buymeacoffee&logoColor=black"></a>
 </p>
 
 <p>
   <a href="#features">Features</a> •
-  <a href="#screenshots">Screenshots</a> •
   <a href="#known-issues">Known Issues</a> •
   <a href="#installation">Installation</a> •
   <a href="#support">Support</a>
@@ -91,17 +90,14 @@ gnome-extensions enable live-lockscreen@nick-redwill
 
 ## Support
 
-If you enjoy this extension, consider buying me a tea. I'm not really a coffee person :D
+If you enjoy this extension, consider supporting its development on GitHub Sponsors.
 
 <p align="center">
   <a href="https://github.com/sponsors/nick-redwill">
     <img src="https://img.shields.io/badge/Sponsor_on_GitHub-EA4AAA?style=for-the-badge&logo=githubsponsors&logoColor=white" height="50" alt="Sponsor on GitHub">
   </a>
-  <br>
-  <a href="https://www.buymeacoffee.com/nick_redwill">
-    <img src="https://img.buymeacoffee.com/button-api/?text=Buy%20Me%20a%20Tea&emoji=%F0%9F%8D%B5&slug=nick_redwill&button_colour=FFDD00&font_colour=000000&font_family=Lato&outline_colour=000000&coffee_colour=ffffff" height="50" alt="Buy me a tea">
-  </a>
 </p>
+
 
 ## License
 
