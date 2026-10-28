@@ -28,8 +28,6 @@ export default class LockscreenExtension extends Extension {
         this._active = false;
         // Paused through media controls, nothing else resumes playback until played again
         this._userPaused = false;
-        // Last pause state reported by mpv
-        this._playerPaused = true;
         this._settings = this.getSettings();
 
         this._setup().catch((e) => {
