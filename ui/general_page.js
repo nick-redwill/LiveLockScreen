@@ -32,11 +32,55 @@ class LLSGeneralPage extends Adw.PreferencesPage {
 
     _buildVideoGroup() {
         const group = new Adw.PreferencesGroup();
-        group.add(this._buildSourceRow());
+
+        this._sourceRow = this._buildSourceRow();
+        group.add(this._sourceRow);
+        group.add(this._buildStaticImageRow());
         group.add(this._buildScalingRow());
         group.add(this._buildVolumeRow());
         group.add(this._buildMprisRow());
         return group;
+    }
+
+    _buildStaticImageRow() {
+        const row = new Adw.ExpanderRow({
+            title: 'Static images',
+            subtitle: 'Also show static images from the source',
+            show_enable_switch: true,
+        });
+        this._settings.bind(Keys.STATIC_IMAGE_ENABLED, row, 'enable-expansion', Gio.SettingsBindFlags.DEFAULT);
+        row.connect('notify::enable-expansion', () => {
+            if (this._sourceRow)
+                this._updateSourceRow(this._sourceRow);
+        });
+
+        row.add_row(this._buildPhotoDurationRow());
+        return row;
+    }
+
+    _buildPhotoDurationRow() {
+        const row = new Adw.SpinRow({
+            title: 'Image duration',
+            subtitle: 'How long each static image stays on screen',
+            adjustment: new Gtk.Adjustment({
+                lower: 1,
+                upper: 3600,
+                step_increment: 1,
+                value: this._settings.get_int(Keys.PHOTO_DURATION),
+            }),
+        });
+
+        row.add_suffix(new Gtk.Label({
+            label: 's',
+            valign: Gtk.Align.CENTER,
+            css_classes: ['dim-label'],
+        }));
+
+        row.connect('notify::value', r => {
+            this._settings.set_int(Keys.PHOTO_DURATION, r.get_value());
+        });
+
+        return row;
     }
 
     _buildPlaylistGroup() {
@@ -323,7 +367,9 @@ class LLSGeneralPage extends Adw.PreferencesPage {
         else
             row.subtitle = path;
 
-        const count = isFolder ? listMediaFiles(path).length : 0;
+        const count = isFolder ? listMediaFiles(
+            path, this._settings.get_boolean(Keys.STATIC_IMAGE_ENABLED)
+        ).length : 0;
         this._sourceCountLabel.visible = isFolder;
         this._sourceCountLabel.label = count === 1 ? '1 file' : `${count} files`;
 

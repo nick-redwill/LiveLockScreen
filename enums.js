@@ -11,6 +11,9 @@ export const Keys = {
     PLAYLIST_FADE_DURATION: "playlist-fade-duration",
     PLAYLIST_LAST_PLAYED: "playlist-last-played",
 
+    STATIC_IMAGE_ENABLED: "general-static-image-enabled",
+    PHOTO_DURATION: "background-photo-duration-seconds",
+
     VIDEO_PATH: "background-video-path",
     SCALING_MODE: "background-video-scaling-mode",
     USE_VIDEORATE: "background-video-use-videorate",
