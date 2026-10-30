@@ -55,23 +55,28 @@ export function listMediaFiles(dirPath, includeImages = false) {
 /**
  * Turns the path saved in settings into a list of files to play.
  * A directory expands to the media files inside it, a regular
- * file is returned as is.
+ * file is returned as is if it's supported.
  *
  * @param {string} path - File or directory path
- * @param {boolean} [includeImages] - Also list static images inside a directory
+ * @param {boolean} [includeImages] - Also accept static images
  * @returns {string[]} Empty if the path is missing or has nothing to play
  */
 export function resolveMediaPaths(path, includeImages = false) {
     if (!path)
         return [];
 
-    const type = Gio.File.new_for_path(path)
-        .query_file_type(Gio.FileQueryInfoFlags.NONE, null);
+    const file = Gio.File.new_for_path(path);
+    const type = file.query_file_type(Gio.FileQueryInfoFlags.NONE, null);
 
     if (type === Gio.FileType.DIRECTORY)
         return listMediaFiles(path, includeImages);
-    if (type === Gio.FileType.REGULAR)
-        return [path];
+    if (type !== Gio.FileType.REGULAR)
+        return [];
 
-    return [];
+    // Full content type, the same check the file picker uses
+    const contentType = file.query_info(
+        'standard::content-type', Gio.FileQueryInfoFlags.NONE, null
+    ).get_content_type();
+
+    return isSupportedMedia(contentType, includeImages) ? [path] : [];
 }
