@@ -152,13 +152,25 @@ When [reporting a bug](https://github.com/nick-redwill/LiveLockScreen/issues), p
 
 ## Support
 
-If you enjoy this extension, consider supporting its development on GitHub Sponsors.
+If you enjoy this extension, consider supporting its development.
 
 <p align="center">
   <a href="https://github.com/sponsors/nick-redwill">
     <img src="https://img.shields.io/badge/Sponsor_on_GitHub-EA4AAA?style=for-the-badge&logo=githubsponsors&logoColor=white" height="50" alt="Sponsor on GitHub">
   </a>
 </p>
+
+You can also donate with crypto:
+
+**Bitcoin (BTC)**
+```
+bc1qw6eclug78e2fhx6g5kk88mljcsf4l48y8sxg02
+```
+
+**USDT (TRC20)**
+```
+TFk1UM72jCXCVX53hbVoncFp5k8bVGbhAe
+```
 
 ## Development
 
