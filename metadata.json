@@ -1,5 +1,5 @@
 {
-  "description": "A GNOME Shell extension that lets you set videos and GIFs as your lock screen background.",
+  "description": "A GNOME Shell extension that lets you set videos, GIFs and images as your lock screen background.",
   "name": "Live Lock Screen",
   "session-modes": [
     "unlock-dialog"

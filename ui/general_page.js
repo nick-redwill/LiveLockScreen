@@ -124,7 +124,7 @@ class LLSGeneralPage extends Adw.PreferencesPage {
 
         group.add(this._buildFootnote(
             'Efficient is still experimental and may cause issues ' +
-            'on some systems. Switch to Balanced if the video ' +
+            'on some systems. Switch to Balanced if the background ' +
             'does not show up or looks wrong.'
         ));
         return group;
@@ -135,7 +135,7 @@ class LLSGeneralPage extends Adw.PreferencesPage {
         group.add(this._buildMpvCustomArgsRow());
         group.add(this._buildFootnote(
             'Incorrect parameters can break the extension. ' +
-            'If the video stops showing up, clear this field.'
+            'If the background stops showing up, clear this field.'
         ));
         return group;
     }
@@ -253,7 +253,7 @@ class LLSGeneralPage extends Adw.PreferencesPage {
         // Order matches ScalingMode
         const row = new Adw.ComboRow({
             title: 'Scaling mode',
-            subtitle: 'How the video is scaled to fit the screen',
+            subtitle: 'How the background is scaled to fit the screen',
             model: Gtk.StringList.new(['Stretch', 'Fit', 'Cover']),
         });
         this._settings.bind(Keys.SCALING_MODE, row, 'selected', Gio.SettingsBindFlags.DEFAULT);
@@ -286,9 +286,9 @@ class LLSGeneralPage extends Adw.PreferencesPage {
 
     _buildActionOnEndRow() {
         const row = new Adw.ComboRow({
-            title: 'On video end',
-            subtitle: 'What to do when the video finishes playing',
-            model: Gtk.StringList.new(['Loop', 'Pause', 'Next video']),
+            title: 'On playback end',
+            subtitle: 'What to do when the file finishes playing',
+            model: Gtk.StringList.new(['Loop', 'Pause', 'Next file']),
         });
         this._settings.bind(Keys.ACTION_ON_END, row, 'selected', Gio.SettingsBindFlags.DEFAULT);
         return row;
@@ -303,7 +303,7 @@ class LLSGeneralPage extends Adw.PreferencesPage {
     _buildMprisRow() {
         const row = new Adw.SwitchRow({
             title: 'Media controls',
-            subtitle: 'Control the video with media keys and other MPRIS clients',
+            subtitle: 'Control playback with media keys and other MPRIS clients',
         });
         this._settings.bind(Keys.MPRIS_ENABLED, row, 'active', Gio.SettingsBindFlags.DEFAULT);
         return row;
@@ -313,7 +313,7 @@ class LLSGeneralPage extends Adw.PreferencesPage {
         const row = new Adw.ComboRow({
             title: 'Action on blank',
             subtitle: 'What to do when the screen goes black',
-            model: Gtk.StringList.new(['Ignore', 'Pause video', 'Restart video', 'Next video']),
+            model: Gtk.StringList.new(['Ignore', 'Pause', 'Restart', 'Next file']),
         });
         this._settings.bind(Keys.ACTION_ON_BLANK, row, 'selected', Gio.SettingsBindFlags.DEFAULT);
         return row;
