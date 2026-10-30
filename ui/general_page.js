@@ -380,7 +380,7 @@ class LLSGeneralPage extends Adw.PreferencesPage {
     }
 
     _openFolderDialog(row) {
-        const dialog = new Gtk.FileDialog({ title: 'Select Folder with Videos or GIFs' });
+        const dialog = new Gtk.FileDialog({ title: 'Select Folder' });
 
         const videoPath = this._settings.get_string(Keys.VIDEO_PATH);
         if (videoPath) {
@@ -409,12 +409,13 @@ class LLSGeneralPage extends Adw.PreferencesPage {
     }
 
     _openFileDialog(row) {
+        const includeImages = this._settings.get_boolean(Keys.STATIC_IMAGE_ENABLED);
         const filters = new Gio.ListStore({ item_type: Gtk.FileFilter });
 
         const allFilter = new Gtk.FileFilter();
-        allFilter.set_name('Video and GIF files');
+        allFilter.set_name(includeImages ? 'Video, GIF and image files' : 'Video and GIF files');
         allFilter.add_mime_type('video/*');
-        allFilter.add_mime_type('image/gif');
+        allFilter.add_mime_type(includeImages ? 'image/*' : 'image/gif');
 
         // Separate filters so the user can narrow down if needed.
         const videoFilter = new Gtk.FileFilter();
@@ -429,7 +430,16 @@ class LLSGeneralPage extends Adw.PreferencesPage {
         filters.append(videoFilter);
         filters.append(gifFilter);
 
-        const dialog = new Gtk.FileDialog({ title: 'Select Video or GIF File' });
+        if (includeImages) {
+            const imageFilter = new Gtk.FileFilter();
+            imageFilter.set_name('Images');
+            imageFilter.add_mime_type('image/*');
+            filters.append(imageFilter);
+        }
+
+        const dialog = new Gtk.FileDialog({
+            title: includeImages ? 'Select Video, GIF or Image File' : 'Select Video or GIF File',
+        });
         dialog.set_filters(filters);
 
         const videoPath = this._settings.get_string(Keys.VIDEO_PATH);
