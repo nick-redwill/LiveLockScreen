@@ -65,7 +65,7 @@ export class VideoRenderer {
         this._sourceW = w;
         this._sourceH = h;
         // window size
-        //NOTE: if w/h are 0 the window is not resized and the clone is not scaled
+        //NOTE: if w/h are 0 the window is not resized and the wrapper is not scaled
         this._w = 0;
         this._h = 0;
         this._scalingMode = scalingMode;
@@ -175,7 +175,7 @@ export class VideoRenderer {
     }
 
     /**
-     * Moves the player window out of the window group onto the globa.stage,
+     * Moves the player window out of the window group onto the global.stage,
      * below everything, and hides it. Only its clones are visible
      */
     _attachWindow(window) {
