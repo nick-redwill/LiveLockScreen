@@ -90,7 +90,7 @@ gnome-extensions enable live-lockscreen@nick-redwill
 
 ## Support
 
-If you enjoy this extension, consider supporting its development on GitHub Sponsors.
+If you enjoy this extension, consider supporting its development.
 
 <p align="center">
   <a href="https://github.com/sponsors/nick-redwill">
@@ -98,6 +98,17 @@ If you enjoy this extension, consider supporting its development on GitHub Spons
   </a>
 </p>
 
+You can also donate with crypto:
+
+**Bitcoin (BTC)**
+```
+bc1qw6eclug78e2fhx6g5kk88mljcsf4l48y8sxg02
+```
+
+**USDT (TRC20)**
+```
+TFk1UM72jCXCVX53hbVoncFp5k8bVGbhAe
+```
 
 ## License
 
