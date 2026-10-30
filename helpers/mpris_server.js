@@ -3,6 +3,8 @@ import GLib from 'gi://GLib';
 
 import { logWarn } from '../utils/logging.js';
 
+Gio._promisify(Gio.DBusConnection, 'new_for_address', 'new_for_address_finish');
+
 const BUS_NAME = 'org.mpris.MediaPlayer2.LiveLockScreen';
 const OBJECT_PATH = '/org/mpris/MediaPlayer2';
 const TRACK_PATH = '/org/gnome/shell/extensions/LiveLockScreen/Track';
@@ -116,11 +118,39 @@ export class MprisServer {
         this._rootImpl = Gio.DBusExportedObject.wrapJSObject(ROOT_IFACE, root);
         this._playerImpl = Gio.DBusExportedObject.wrapJSObject(PLAYER_IFACE, this._player);
 
-        this._rootImpl.export(Gio.DBus.session, OBJECT_PATH);
-        this._playerImpl.export(Gio.DBus.session, OBJECT_PATH);
+        this._connection = null;
+        this._ownerId = 0;
+        this._cancellable = new Gio.Cancellable();
+
+        this._start().catch(e => {
+            if (!e.matches?.(Gio.IOErrorEnum, Gio.IOErrorEnum.CANCELLED))
+                logWarn(`MprisServer: failed to start, media controls disabled: ${e}`);
+        });
+    }
+
+    /**
+     * Gio.DBus.session is shared by the whole gnome-shell process. Only one object
+     * per connection can export an interface at a path, and MPRIS requires a fixed
+     * path, so anything else exporting a player from the shell would collide with us.
+     * (That happened with Yet Another Radio extension for instance).
+     * A private connection gets its own unique name on the bus and avoids that.
+     */
+    async _start() {
+        const address = Gio.dbus_address_get_for_bus_sync(Gio.BusType.SESSION, null);
+
+        this._connection = await Gio.DBusConnection.new_for_address(
+            address,
+            Gio.DBusConnectionFlags.AUTHENTICATION_CLIENT |
+                Gio.DBusConnectionFlags.MESSAGE_BUS_CONNECTION,
+            null,
+            this._cancellable
+        );
+
+        this._rootImpl.export(this._connection, OBJECT_PATH);
+        this._playerImpl.export(this._connection, OBJECT_PATH);
 
         this._ownerId = Gio.bus_own_name_on_connection(
-            Gio.DBus.session,
+            this._connection,
             BUS_NAME,
             Gio.BusNameOwnerFlags.NONE,
             null,
@@ -152,14 +182,23 @@ export class MprisServer {
     }
 
     destroy() {
+        this._cancellable.cancel();
+
         if (this._ownerId) {
             Gio.bus_unown_name(this._ownerId);
             this._ownerId = 0;
         }
 
-        this._playerImpl?.unexport();
+        // Not there if destroyed before the connection was established
+        if (this._connection) {
+            this._playerImpl.unexport();
+            this._rootImpl.unexport();
+
+            this._connection.close(null, null);
+            this._connection = null;
+        }
+
         this._playerImpl = null;
-        this._rootImpl?.unexport();
         this._rootImpl = null;
     }
 }
