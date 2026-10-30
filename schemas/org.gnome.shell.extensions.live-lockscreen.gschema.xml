@@ -73,7 +73,7 @@
         </key>
         <key name="background-video-use-videorate" type="b">
             <default>false</default>
-            <summary>Whether to use videorate element in pipeline</summary>
+            <summary>Whether to change FPS of the source (term videorate is a leftover from GStreamer)</summary>
         </key>
         <key name="background-video-framerate" type="i">
             <range min="1" max="120" />
