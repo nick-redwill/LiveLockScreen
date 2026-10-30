@@ -5,7 +5,7 @@
 # Live Lock Screen
 
 **Bring your lock screen to life.**<br>
-Play videos and GIFs on the GNOME lock screen.
+Play videos, images and GIFs on the GNOME lock screen.
 
 <p>
   <img alt="GNOME Shell 46+" src="https://img.shields.io/badge/GNOME_Shell-46%2B-4A86CF?style=for-the-badge&logo=gnome&logoColor=white&labelColor=2B2B2B">
@@ -49,16 +49,16 @@ If you're looking for more advanced lock screen or desktop customization, you ma
 
 | | Feature | |
 |:-:|---|---|
-| 🎬 | **Video & GIF playback** | Use any video or GIF as the lock screen background, played by MPV |
-| 📁 | **Playlists** | Pick a folder instead of a single file. Play the videos in order, shuffled, or randomly, and start with the first, a random, or the last played video |
-| 🌑 | **Smooth transitions** | Fades through black when switching videos, so you never see the next one loading. Disable this if you prefer abrupt switching. |
+| 🎬 | **Video & Image playback** | Use any video, GIF or static image as the lock screen background, played by MPV |
+| 📁 | **Playlists** | Pick a folder instead of a single file. Play the files in order, shuffled, or randomly, and start with the first, a random, or the last played one |
+| 🌑 | **Smooth transitions** | Fades through black when switching files, so you never see the next one loading. Disable this if you prefer abrupt switching. |
 | 🎨 | **Scaling modes** | Cover, fit, or stretch |
-| 🔲 | **Transparency** | Transparent GIFs and videos are shown over the default background |
+| 🔲 | **Transparency** | Transparent media is shown over the default background |
 | 🖥️ | **Multi-monitor** | Works across all your displays |
 | 🌌 | **Fade-in & blur** | Configurable fade-in animation, blur radius, and brightness |
 | 🔑 | **Password prompt reactions** | Pause, grayscale, or change the blur when the password prompt appears |
-| ⏸️ | **Smart pause** | Reacts to the video ending, the screen turning off, suspend, and running on battery |
-| ⏯️ | **Media controls** | Play, pause, and skip videos with media keys or any MPRIS client |
+| ⏸️ | **Smart pause** | Reacts to playback ending, the screen turning off, suspend, and running on battery |
+| ⏯️ | **Media controls** | Play, pause, and skip with media keys or any MPRIS client |
 | 🔊 | **Audio** | Optional audio with volume control and smooth fade in/out |
 | ⚡ | **Playback profiles** | Quality, Balanced, or Efficient, depending on your hardware |
 | 🛠️ | **Custom MPV arguments** | Pass your own MPV options for full control |
@@ -117,7 +117,7 @@ gnome-extensions enable live-lockscreen@nick-redwill
 ## Tips
 
 **Keep the screen from turning off**<br>
-GNOME turns the screen off on the lock screen. To prevent that use the [Unblank lock screen](https://extensions.gnome.org/extension/1414/unblank/) extension. You can also choose what happens to the video when the screen turns off (ignore, pause, restart, or switch to the next video) under **Events → Action on blank**.
+GNOME turns the screen off on the lock screen. To prevent that use the [Unblank lock screen](https://extensions.gnome.org/extension/1414/unblank/) extension. You can also choose what happens to playback when the screen turns off (ignore, pause, restart, or switch to the next file) under **Events → Action on blank**.
 
 **Playback profiles**<br>
 Found under **Performance**:
@@ -131,11 +131,11 @@ Found under **Performance**:
 If the video does not show up or looks wrong with Efficient, switch to Balanced.
 
 **Media controls**<br>
-Enable **Media controls** in the preferences to control the video with media keys or any MPRIS client (e.g. GSConnect).
+Enable **Media controls** in the preferences to control playback with media keys or any MPRIS client (e.g. GSConnect).
 
 ## Troubleshooting
 
-If the default lock screen shows up instead of your video, check the logs while locking the screen:
+If the default lock screen shows up instead of your background, check the logs while locking the screen:
 
 ```bash
 journalctl -f -o cat /usr/bin/gnome-shell | grep LiveLockScreen

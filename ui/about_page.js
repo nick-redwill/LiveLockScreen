@@ -19,6 +19,7 @@ class LLSAboutPage extends Adw.PreferencesPage {
 
         this.add(this._buildBannerGroup());
         this.add(this._buildLinksGroup());
+        this.add(this._buildSupportGroup());
     }
 
     _buildBannerGroup() {
@@ -98,18 +99,64 @@ class LLSAboutPage extends Adw.PreferencesPage {
                 icon: "adw-external-link-symbolic",
                 url: "https://github.com/nick-redwill/LiveLockScreen/issues",
             },
-            {
-                title: "Support the Developer",
-                subtitle: "Become a sponsor on GitHub",
-                icon: "emblem-favorite-symbolic",
-                url: "https://github.com/sponsors/nick-redwill",
-            },
         ];
 
         for (const { title, subtitle, icon, url } of links)
             group.add(this._buildLinkRow(title, subtitle, icon, url));
 
         return group;
+    }
+
+    _buildSupportGroup() {
+        const group = new Adw.PreferencesGroup({ title: "Support the Developer" });
+
+        group.add(this._buildLinkRow(
+            "GitHub Sponsors",
+            "Become a sponsor on GitHub",
+            "emblem-favorite-symbolic",
+            "https://github.com/sponsors/nick-redwill",
+        ));
+
+        const wallets = [
+            {
+                title: "Bitcoin (BTC)",
+                address: "bc1qw6eclug78e2fhx6g5kk88mljcsf4l48y8sxg02",
+            },
+            {
+                title: "USDT (TRC20)",
+                address: "TFk1UM72jCXCVX53hbVoncFp5k8bVGbhAe",
+            },
+        ];
+
+        for (const { title, address } of wallets)
+            group.add(this._buildWalletRow(title, address));
+
+        return group;
+    }
+
+    _buildWalletRow(title, address) {
+        const row = new Adw.ActionRow({
+            title,
+            subtitle: address,
+            subtitle_selectable: true,
+        });
+
+        const copyButton = new Gtk.Button({
+            icon_name: "edit-copy-symbolic",
+            tooltip_text: "Copy address",
+            css_classes: ["flat"],
+            valign: Gtk.Align.CENTER,
+        });
+
+        copyButton.connect("clicked", () => {
+            copyButton.get_clipboard().set(address);
+            this.get_root()?.add_toast(
+                new Adw.Toast({ title: `${title} address copied` }),
+            );
+        });
+
+        row.add_suffix(copyButton);
+        return row;
     }
 
     _buildLinkRow(title, subtitle, iconName, url) {
@@ -124,6 +171,8 @@ class LLSAboutPage extends Adw.PreferencesPage {
                 icon_name: iconName,
                 css_classes: ["dim-label"],
                 valign: Gtk.Align.CENTER,
+                // Lines up with the icon inside the wallet copy buttons
+                margin_end: 10,
             }),
         );
 

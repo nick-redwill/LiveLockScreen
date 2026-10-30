@@ -43,6 +43,15 @@
             <summary>Whether the video can be controlled with media keys and other MPRIS clients</summary>
         </key>
 
+        <key name="general-static-image-enabled" type="b">
+            <default>false</default>
+            <summary>Also play static images from the selected file or folder</summary>
+        </key>
+        <key name="background-photo-duration-seconds" type="i">
+            <range min="1" max="3600" />
+            <default>5</default>
+            <summary>How long each static image is displayed</summary>
+        </key>
         <key name="background-video-path" type="s">
             <default>""</default>
             <summary>Path to background video</summary>
@@ -64,7 +73,7 @@
         </key>
         <key name="background-video-use-videorate" type="b">
             <default>false</default>
-            <summary>Whether to use videorate element in pipeline</summary>
+            <summary>Whether to change FPS of the source (term videorate is a leftover from GStreamer)</summary>
         </key>
         <key name="background-video-framerate" type="i">
             <range min="1" max="120" />

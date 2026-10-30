@@ -35,7 +35,6 @@ export class DialogInjector {
         this._authPrompt = null;
         this._tapAction = null;
         this._injectionManager = new InjectionManager();
-        this._destroyed = false;
     }
 
     /**
@@ -43,10 +42,7 @@ export class DialogInjector {
      * Throws if the dialog never appears
      */
     async inject() {
-        const dialog = await this._waitForDialog();
-        if (this._destroyed) return;
-
-        this._dialog = dialog;
+        this._dialog = await this._waitForDialog();
         this._dialog.connectObject('destroy', () => {
             this._dialog = null;
             this._authPrompt = null;
@@ -62,7 +58,6 @@ export class DialogInjector {
     async _waitForDialog() {
         let attempts = 0;
         while (!Main.screenShield._dialog) {
-            if (this._destroyed) return null;
             if (attempts >= MAX_DIALOG_INJECT_ATTEMPTS) {
                 throw new Error(
                     `_dialog never appeared after ${MAX_DIALOG_INJECT_ATTEMPTS} attempts`
@@ -188,8 +183,6 @@ export class DialogInjector {
     }
 
     destroy() {
-        this._destroyed = true;
-
         this._injectionManager?.clear();
         this._injectionManager = null;
 

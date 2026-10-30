@@ -8,19 +8,23 @@ const FILE_ATTRIBUTES = [
     'standard::is-hidden',
 ].join(',');
 
-function isSupportedMedia(contentType) {
-    return !!contentType &&
-        (contentType.startsWith('video/') || contentType === 'image/gif');
+function isSupportedMedia(contentType, includeImages) {
+    if (!contentType)
+        return false;
+
+    return contentType.startsWith('video/') || contentType === 'image/gif' ||
+        (includeImages && contentType.startsWith('image/'));
 }
 
 /**
- * Lists the videos and GIFs placed directly inside a directory.
+ * Lists the videos and GIFs (and static images if enabled) placed directly inside a directory.
  * Sub-directories and hidden files are ignored.
  *
  * @param {string} dirPath - Absolute path of the directory
+ * @param {boolean} [includeImages] - Also list static images
  * @returns {string[]} Absolute paths in natural (human) order
  */
-export function listMediaFiles(dirPath) {
+export function listMediaFiles(dirPath, includeImages = false) {
     const dir = Gio.File.new_for_path(dirPath);
     const paths = [];
     let enumerator = null;
@@ -36,7 +40,7 @@ export function listMediaFiles(dirPath) {
                 continue;
 
             const contentType = info.get_attribute_string('standard::fast-content-type');
-            if (isSupportedMedia(contentType))
+            if (isSupportedMedia(contentType, includeImages))
                 paths.push(dir.get_child(info.get_name()).get_path());
         }
     } catch (e) {
@@ -51,22 +55,28 @@ export function listMediaFiles(dirPath) {
 /**
  * Turns the path saved in settings into a list of files to play.
  * A directory expands to the media files inside it, a regular
- * file is returned as is.
+ * file is returned as is if it's supported.
  *
  * @param {string} path - File or directory path
+ * @param {boolean} [includeImages] - Also accept static images
  * @returns {string[]} Empty if the path is missing or has nothing to play
  */
-export function resolveMediaPaths(path) {
+export function resolveMediaPaths(path, includeImages = false) {
     if (!path)
         return [];
 
-    const type = Gio.File.new_for_path(path)
-        .query_file_type(Gio.FileQueryInfoFlags.NONE, null);
+    const file = Gio.File.new_for_path(path);
+    const type = file.query_file_type(Gio.FileQueryInfoFlags.NONE, null);
 
     if (type === Gio.FileType.DIRECTORY)
-        return listMediaFiles(path);
-    if (type === Gio.FileType.REGULAR)
-        return [path];
+        return listMediaFiles(path, includeImages);
+    if (type !== Gio.FileType.REGULAR)
+        return [];
 
-    return [];
+    // Full content type, the same check the file picker uses
+    const contentType = file.query_info(
+        'standard::content-type', Gio.FileQueryInfoFlags.NONE, null
+    ).get_content_type();
+
+    return isSupportedMedia(contentType, includeImages) ? [path] : [];
 }

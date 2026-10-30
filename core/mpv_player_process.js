@@ -38,7 +38,7 @@ export class MpvPlayerProcess {
     constructor({
         playlist, actionOnEnd = ActionOnEnd.LOOP, 
         volume,
-        useVideorate = false, framerate, 
+        useVideorate = false, framerate, imageDuration = 5,
         onSizeChange, onPauseChange, onFileChange, onNext, onPlaybackRestart,
         configPath,
         profile = MpvProfile.QUALITY, customArgs = [],
@@ -60,13 +60,16 @@ export class MpvPlayerProcess {
         this._volume = volume;
         this._useVideorate = useVideorate;
         this._framerate = framerate;
+        this._framerateProfilePath = null;
+        // Seconds each static image stays on screen
+        this._imageDuration = imageDuration;
 
         this._onSizeChange = onSizeChange;
         this._onPauseChange = onPauseChange;
         this._onFileChange = onFileChange;
         //NOTE: If set, the caller must switch to next
         this._onNext = onNext;
-        // First frame after loading a file (or seeking) is ready
+        // First frame after loading a file is ready
         this._onPlaybackRestart = onPlaybackRestart;
 
         this._proc = null;
@@ -99,9 +102,8 @@ export class MpvPlayerProcess {
         if (!this._configPath || !GLib.file_test(this._configPath, GLib.FileTest.IS_REGULAR))
             throw new MpvError(`mpv config not found at "${this._configPath}"`);
 
-        const transparencyArg = await this._getTransparencyArg();
-
-        // User configs are skipped, everything comes from our own config file
+        // User configs are skipped, everything comes from
+        // our own config file + additional arguments
         const args = [
             'mpv',
             '--no-config',
@@ -117,17 +119,24 @@ export class MpvPlayerProcess {
             '--pause=yes',
             '--keep-open=yes',
             `--input-ipc-server=${this._socketPath}`,
-            `--volume=${Math.round(this._volume * 100)}`
+            `--volume=${Math.round(this._volume * 100)}`,
+            //NOTE: 
+            // Letting mpv handle the window size can cause it to maximize
+            // and thats a pain in the rear to deal with. Hence starting with a 
+            // small window. 50% is a safe spot
+            '--geometry=50%'
         );
 
-        if (transparencyArg)
-            args.push(transparencyArg);
+        args.push(...await this._ensureSupportedArgs());
 
         if (this._actionOnEnd === ActionOnEnd.LOOP)
             args.push('--loop');
 
+        if (this._imageDuration > 0)
+            args.push(`--image-display-duration=${this._imageDuration}`);
+
         if (this._useVideorate)
-            args.push(`--vf=fps=${this._framerate}`);
+            args.push(`--include=${this._writeFramerateProfile()}`);
 
         // "--" so a file name starting with "-" is not parsed as an option
         args.push('--', this._playlist.current());
@@ -146,6 +155,42 @@ export class MpvPlayerProcess {
     }
 
     /**
+     * Limiting the framerate with a plain --vf=fps argument is not an option:
+     * mpv fails to load static images with it.
+     *
+     * So the filter lives in a conditional profile. mpv evaluates the condition
+     * again for every file: the profile turns on for videos and GIFs, and
+     * profile-restore=copy puts the previous filters back when it turns off,
+     * so images play without it. 
+     *
+     * The profile needs the framerate from the settings, that's why it's
+     * generated here instead of being in external/mpv.conf. It's a temporary
+     * file, destroy() removes it.
+     *
+     * NOTE: Conditional profiles depend on a Lua script built into mpv, without
+     * Lua support there is simply no framerate limit
+     *
+     * @returns {string} path of the generated config file
+     */
+    _writeFramerateProfile() {
+        this._framerateProfilePath = GLib.build_filenamev([
+            GLib.get_user_runtime_dir(),
+            `live-lockscreen-mpv-${GLib.uuid_string_random()}.conf`,
+        ]);
+
+        GLib.file_set_contents(this._framerateProfilePath, [
+            '[limit-framerate]',
+            //NOTE: Checking if current file is NOT an image
+            'profile-cond=p["current-tracks/video/image"] == false',
+            'profile-restore=copy',
+            `vf-append=@limit-framerate:fps=${this._framerate}`,
+            '',
+        ].join('\n'));
+
+        return this._framerateProfilePath;
+    }
+
+    /**
      * Only options are allowed, anything else would be added
      * to the playlist by mpv as a file to play
      */
@@ -159,59 +204,72 @@ export class MpvPlayerProcess {
         });
     }
 
-    async _getTransparencyArg() {
-        if (this._transparencyArgCache !== undefined)
-            return this._transparencyArgCache;
+    /**
+     * Not all arguments are supported across different mpv versions
+     * Here we fetch the list of supported args and add the ones we need if they
+     * are supported
+     */
+    async _ensureSupportedArgs() {
+        const supported = await this._getSupportedOptions();
+        const args = [];
 
-        const version = await this._getMpvVersion();
+        if (supported.has('alpha'))
+            args.push('--alpha=yes');
+        else if (supported.has('background'))
+            args.push('--background=none');
+        else
+            logWarnMpv('no transparency option supported');
 
-        if (!version) {
-            this._transparencyArgCache = null;
-            return this._transparencyArgCache;
+        //NOTE: 
+        // Preventing window from auto resizing on new video load is very important
+        // thats why we include these arguments if they are present 
+        // (they might not be on some builds)
+        for (const option of [
+            'auto-window-resize', 'wayland-configure-bounds'
+        ]) {
+            if (supported.has(option))
+                args.push(`--${option}=no`);
+            else
+                logWarnMpv(
+            `--${option} not supported, the window might resize on its own`
+            );
         }
 
-        //NOTE: Newer versions of MPV (0.0.38 and above) do not use --alpha flag
-        const usesNewBackgroundSyntax =
-            version.major > 0 || (version.major === 0 && version.minor >= 38);
-
-        this._transparencyArgCache = usesNewBackgroundSyntax
-            ? '--background=none'
-            : '--alpha=yes';
-
-        return this._transparencyArgCache;
+        return args;
     }
 
-    async _getMpvVersion() {
-        if (this._mpvVersionCache !== undefined)
-            return this._mpvVersionCache;
+    /**
+     * Names of the options this mpv build supports, without the leading "--"
+     */
+    async _getSupportedOptions() {
+        if (this._supportedOptionsCache !== undefined)
+            return this._supportedOptionsCache;
 
         try {
             const proc = Gio.Subprocess.new(
-                ['mpv', '--version'],
+                ['mpv', '--no-config', '--list-options'],
                 Gio.SubprocessFlags.STDOUT_PIPE | Gio.SubprocessFlags.STDERR_SILENCE
             );
 
             const [stdout] = await proc.communicate_utf8_async(null, null);
-            const match = stdout.match(/mpv.*(\d+)\.(\d+)\.(\d+)/);
-
-            this._mpvVersionCache = match
-                ? { major: parseInt(match[1]), minor: parseInt(match[2]), patch: parseInt(match[3]) }
-                : null;
+            this._supportedOptionsCache = new Set(
+                [...stdout.matchAll(/^\s*--([\w-]+)/gm)].map(match => match[1])
+            );
         } catch (e) {
-            logErrorMpv(`failed to determine mpv version: ${e}`);
-            this._mpvVersionCache = null;
+            logErrorMpv(`failed to list mpv options: ${e}`);
+            this._supportedOptionsCache = new Set();
         }
 
-        return this._mpvVersionCache;
+        return this._supportedOptionsCache;
     }
 
-    _removeSocketFile() {
+    _removeRuntimeFile(path) {
         try {
-            const file = Gio.File.new_for_path(this._socketPath);
+            const file = Gio.File.new_for_path(path);
             if (file.query_exists(null))
                 file.delete(null);
         } catch (e) {
-            logErrorMpv(`failed to remove socket file on cleanup: ${e}`);
+            logErrorMpv(`failed to remove "${path}" on cleanup: ${e}`);
         }
     }
 
@@ -337,11 +395,13 @@ export class MpvPlayerProcess {
             const data = JSON.parse(line);
 
             if (data.data && data.data.w && data.data.h) {
-                if (this.w != data.data.w || this.h != data.data.h) {
-                    this.w = data.data.w;
-                    this.h = data.data.h;
-                    this._onSizeChange?.(this.w, this.h);
-                }
+                this.w = data.data.w;
+                this.h = data.data.h;
+                //NOTE: 
+                // Firing callback even if the size is the same
+                // To ensure VideoRenderer always resizes window properly
+                // TBH it doesnt need to, but just another safety guard
+                this._onSizeChange?.(this.w, this.h);
             }
 
             if (data.name == 'playback-time' && data.data) {
@@ -362,7 +422,7 @@ export class MpvPlayerProcess {
             
             if (data.event == 'end-file' && data.reason == 'error') {
                 logWarnMpv(`failed to play file: ${data.file_error ?? 'unknown error'}`);
-                this._waitingForFirstFrame = false;
+                this._waitingFirstFrame = false;
                 // Signal to end the blackout
                 this._onPlaybackRestart?.();
             }
@@ -594,6 +654,8 @@ export class MpvPlayerProcess {
         
         this._window = null;
 
-        this._removeSocketFile();
+        this._removeRuntimeFile(this._socketPath);
+        if (this._framerateProfilePath)
+            this._removeRuntimeFile(this._framerateProfilePath);
     }
 }

@@ -66,7 +66,7 @@ class LLSAppearancePage extends Adw.PreferencesPage {
     _buildFadeInRow() {
         const row = new Adw.SpinRow({
             title: 'Fade in',
-            subtitle: 'Video fade-in animation duration',
+            subtitle: 'Background fade-in animation duration',
             adjustment: new Gtk.Adjustment({
                 lower: 0,
                 upper: 600000,
@@ -90,8 +90,8 @@ class LLSAppearancePage extends Adw.PreferencesPage {
 
     _buildVideoFadeRow() {
         const row = new Adw.ExpanderRow({
-            title: 'Fade between videos',
-            subtitle: 'Briefly fade to black when switching to the next video',
+            title: 'Fade between files',
+            subtitle: 'Briefly fade to black when switching to the next file',
             show_enable_switch: true,
         });
         this._settings.bind(Keys.PLAYLIST_FADE_ENABLED, row, 'enable-expansion', Gio.SettingsBindFlags.DEFAULT);
@@ -159,13 +159,13 @@ class LLSAppearancePage extends Adw.PreferencesPage {
     }
 
     _buildPromptPauseRow() {
-        const row = new Adw.SwitchRow({ title: 'Pause video' });
+        const row = new Adw.SwitchRow({ title: 'Pause playback' });
         this._settings.bind(Keys.PROMPT_PAUSE, row, 'active', Gio.SettingsBindFlags.DEFAULT);
         return row;
     }
 
     _buildPromptGrayscaleRow() {
-        const row = new Adw.SwitchRow({ title: 'Grayscale video' });
+        const row = new Adw.SwitchRow({ title: 'Grayscale' });
         this._settings.bind(Keys.PROMPT_GRAYSCALE, row, 'active', Gio.SettingsBindFlags.DEFAULT);
         return row;
     }

@@ -28,8 +28,6 @@ export default class LockscreenExtension extends Extension {
         this._active = false;
         // Paused through media controls, nothing else resumes playback until played again
         this._userPaused = false;
-        // Last pause state reported by mpv
-        this._playerPaused = true;
         this._settings = this.getSettings();
 
         this._setup().catch((e) => {
@@ -79,11 +77,12 @@ export default class LockscreenExtension extends Extension {
             return null;
         }
 
-        // The saved path can point to a single file or to a folder of videos
-        const videoPaths = resolveMediaPaths(videoPath);
+        // The saved path can point to a single file or to a folder of media
+        const includeImages = this._settings.get_boolean(Keys.STATIC_IMAGE_ENABLED);
+        const videoPaths = resolveMediaPaths(videoPath, includeImages);
         if (videoPaths.length === 0) {
             sendErrorNotification(
-                `No supported videos or GIFs found at "${videoPath}". ` +
+                `No supported media found at "${videoPath}". ` +
                 `Falling back to the default lock screen.`
             );
             logError(`Nothing to play at "${videoPath}"`);
@@ -129,6 +128,7 @@ export default class LockscreenExtension extends Extension {
         this._player = new MpvPlayerProcess({
             playlist,
             actionOnEnd: this._settings.get_int(Keys.ACTION_ON_END),
+            imageDuration: this._settings.get_int(Keys.PHOTO_DURATION),
             volume: this._settings.get_int(Keys.AUDIO_VOLUME) / 100,
             useVideorate: this._settings.get_boolean(Keys.USE_VIDEORATE),
             framerate: this._settings.get_int(Keys.FRAMERATE),
@@ -345,7 +345,7 @@ export default class LockscreenExtension extends Extension {
     */
     disable() {
         destroySleeps();
-        
+
         this._mpris?.destroy();
         this._batteryWatcher?.destroy();
         this._sleepWatcher?.destroy();
@@ -354,6 +354,14 @@ export default class LockscreenExtension extends Extension {
         this._renderer?.destroy();
         this._player?.destroy();
         this._injector?.destroy();
+
         this._settings = null;
+        this._mpris = null;
+        this._batteryWatcher = null;
+        this._sleepWatcher = null;
+        this._blankWatcher = null;
+        this._renderer = null;
+        this._player = null;
+        this._injector = null;
     }
 }

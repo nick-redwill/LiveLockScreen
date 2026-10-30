@@ -32,11 +32,55 @@ class LLSGeneralPage extends Adw.PreferencesPage {
 
     _buildVideoGroup() {
         const group = new Adw.PreferencesGroup();
-        group.add(this._buildSourceRow());
+
+        this._sourceRow = this._buildSourceRow();
+        group.add(this._sourceRow);
+        group.add(this._buildStaticImageRow());
         group.add(this._buildScalingRow());
         group.add(this._buildVolumeRow());
         group.add(this._buildMprisRow());
         return group;
+    }
+
+    _buildStaticImageRow() {
+        const row = new Adw.ExpanderRow({
+            title: 'Static images',
+            subtitle: 'Also show static images from the source',
+            show_enable_switch: true,
+        });
+        this._settings.bind(Keys.STATIC_IMAGE_ENABLED, row, 'enable-expansion', Gio.SettingsBindFlags.DEFAULT);
+        row.connect('notify::enable-expansion', () => {
+            if (this._sourceRow)
+                this._updateSourceRow(this._sourceRow);
+        });
+
+        row.add_row(this._buildPhotoDurationRow());
+        return row;
+    }
+
+    _buildPhotoDurationRow() {
+        const row = new Adw.SpinRow({
+            title: 'Image duration',
+            subtitle: 'How long each static image stays on screen',
+            adjustment: new Gtk.Adjustment({
+                lower: 1,
+                upper: 3600,
+                step_increment: 1,
+                value: this._settings.get_int(Keys.PHOTO_DURATION),
+            }),
+        });
+
+        row.add_suffix(new Gtk.Label({
+            label: 's',
+            valign: Gtk.Align.CENTER,
+            css_classes: ['dim-label'],
+        }));
+
+        row.connect('notify::value', r => {
+            this._settings.set_int(Keys.PHOTO_DURATION, r.get_value());
+        });
+
+        return row;
     }
 
     _buildPlaylistGroup() {
@@ -80,7 +124,7 @@ class LLSGeneralPage extends Adw.PreferencesPage {
 
         group.add(this._buildFootnote(
             'Efficient is still experimental and may cause issues ' +
-            'on some systems. Switch to Balanced if the video ' +
+            'on some systems. Switch to Balanced if the background ' +
             'does not show up or looks wrong.'
         ));
         return group;
@@ -91,7 +135,7 @@ class LLSGeneralPage extends Adw.PreferencesPage {
         group.add(this._buildMpvCustomArgsRow());
         group.add(this._buildFootnote(
             'Incorrect parameters can break the extension. ' +
-            'If the video stops showing up, clear this field.'
+            'If the background stops showing up, clear this field.'
         ));
         return group;
     }
@@ -209,7 +253,7 @@ class LLSGeneralPage extends Adw.PreferencesPage {
         // Order matches ScalingMode
         const row = new Adw.ComboRow({
             title: 'Scaling mode',
-            subtitle: 'How the video is scaled to fit the screen',
+            subtitle: 'How the background is scaled to fit the screen',
             model: Gtk.StringList.new(['Stretch', 'Fit', 'Cover']),
         });
         this._settings.bind(Keys.SCALING_MODE, row, 'selected', Gio.SettingsBindFlags.DEFAULT);
@@ -242,9 +286,9 @@ class LLSGeneralPage extends Adw.PreferencesPage {
 
     _buildActionOnEndRow() {
         const row = new Adw.ComboRow({
-            title: 'On video end',
-            subtitle: 'What to do when the video finishes playing',
-            model: Gtk.StringList.new(['Loop', 'Pause', 'Next video']),
+            title: 'On playback end',
+            subtitle: 'What to do when the file finishes playing',
+            model: Gtk.StringList.new(['Loop', 'Pause', 'Next file']),
         });
         this._settings.bind(Keys.ACTION_ON_END, row, 'selected', Gio.SettingsBindFlags.DEFAULT);
         return row;
@@ -259,7 +303,7 @@ class LLSGeneralPage extends Adw.PreferencesPage {
     _buildMprisRow() {
         const row = new Adw.SwitchRow({
             title: 'Media controls',
-            subtitle: 'Control the video with media keys and other MPRIS clients',
+            subtitle: 'Control playback with media keys and other MPRIS clients',
         });
         this._settings.bind(Keys.MPRIS_ENABLED, row, 'active', Gio.SettingsBindFlags.DEFAULT);
         return row;
@@ -269,7 +313,7 @@ class LLSGeneralPage extends Adw.PreferencesPage {
         const row = new Adw.ComboRow({
             title: 'Action on blank',
             subtitle: 'What to do when the screen goes black',
-            model: Gtk.StringList.new(['Ignore', 'Pause video', 'Restart video', 'Next video']),
+            model: Gtk.StringList.new(['Ignore', 'Pause', 'Restart', 'Next file']),
         });
         this._settings.bind(Keys.ACTION_ON_BLANK, row, 'selected', Gio.SettingsBindFlags.DEFAULT);
         return row;
@@ -323,7 +367,9 @@ class LLSGeneralPage extends Adw.PreferencesPage {
         else
             row.subtitle = path;
 
-        const count = isFolder ? listMediaFiles(path).length : 0;
+        const count = isFolder ? listMediaFiles(
+            path, this._settings.get_boolean(Keys.STATIC_IMAGE_ENABLED)
+        ).length : 0;
         this._sourceCountLabel.visible = isFolder;
         this._sourceCountLabel.label = count === 1 ? '1 file' : `${count} files`;
 
@@ -334,7 +380,7 @@ class LLSGeneralPage extends Adw.PreferencesPage {
     }
 
     _openFolderDialog(row) {
-        const dialog = new Gtk.FileDialog({ title: 'Select Folder with Videos or GIFs' });
+        const dialog = new Gtk.FileDialog({ title: 'Select Folder' });
 
         const videoPath = this._settings.get_string(Keys.VIDEO_PATH);
         if (videoPath) {
@@ -363,12 +409,13 @@ class LLSGeneralPage extends Adw.PreferencesPage {
     }
 
     _openFileDialog(row) {
+        const includeImages = this._settings.get_boolean(Keys.STATIC_IMAGE_ENABLED);
         const filters = new Gio.ListStore({ item_type: Gtk.FileFilter });
 
         const allFilter = new Gtk.FileFilter();
-        allFilter.set_name('Video and GIF files');
+        allFilter.set_name(includeImages ? 'Video, GIF and image files' : 'Video and GIF files');
         allFilter.add_mime_type('video/*');
-        allFilter.add_mime_type('image/gif');
+        allFilter.add_mime_type(includeImages ? 'image/*' : 'image/gif');
 
         // Separate filters so the user can narrow down if needed.
         const videoFilter = new Gtk.FileFilter();
@@ -383,7 +430,16 @@ class LLSGeneralPage extends Adw.PreferencesPage {
         filters.append(videoFilter);
         filters.append(gifFilter);
 
-        const dialog = new Gtk.FileDialog({ title: 'Select Video or GIF File' });
+        if (includeImages) {
+            const imageFilter = new Gtk.FileFilter();
+            imageFilter.set_name('Images');
+            imageFilter.add_mime_type('image/*');
+            filters.append(imageFilter);
+        }
+
+        const dialog = new Gtk.FileDialog({
+            title: includeImages ? 'Select Video, GIF or Image File' : 'Select Video or GIF File',
+        });
         dialog.set_filters(filters);
 
         const videoPath = this._settings.get_string(Keys.VIDEO_PATH);

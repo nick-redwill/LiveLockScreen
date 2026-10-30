@@ -6,12 +6,13 @@ import Clutter from 'gi://Clutter';
 import GLib from 'gi://GLib';
 
 import { Direction } from '../enums.js';
-import { applyScaling } from '../utils/actors.js';
+import { applyScaling, getRenderSize } from '../utils/actors.js';
 import { SHELL_VERSION } from '../utils/shell_version.js';
 import { logWarn } from '../utils/logging.js';
 import { toColor } from '../utils/base.js';
 
 import { ActorAnimator } from '../helpers/actor_animator.js';
+import { SmoothDesaturateEffect } from '../helpers/smooth_desaturate_effect.js';
 
 const BLUR_EFFECT_NAME = 'lockscreen-extension-blur';
 const DESATURATE_EFFECT_NAME = 'lockscreen-extension-desaturate';
@@ -21,6 +22,8 @@ const PROMPT_ANIM_DELAY = 5;
 // Keeps the screen black a bit longer after the new video is ready,
 // so video load spam doesn't cause blinking
 const BLACKIN_DELAY = 100;
+// Times in a row the window gets resized back before giving up, see _queueWindowSizeCheck()
+const MAX_WINDOW_SIZE_RETRIES = 10;
 
 /**
  * Shows the player window as the lock screen background.
@@ -29,6 +32,18 @@ const BLACKIN_DELAY = 100;
  *
  * Does not touch the player or the dialog. The background group
  * is passed in by whoever creates the backgrounds.
+ * 
+ * NOTE: 
+ * Before the window would be scaled to video's native size 
+ * and then downscaled by each clone to according monitors size (based on scaling mode).
+ * 
+ * Now the window is scaled based on monitors or kept at video size.
+ * That means that 480p video remains 480p for a Full HD monitor
+ * However 4K video is downscaled to Full HD
+ * And in case of multiple monitors of different size we pick a width/height 
+ * combination that suits all monitors
+ * 
+ * TODO: Split this into smaller classes
  */
 export class VideoRenderer {
     constructor({
@@ -45,10 +60,14 @@ export class VideoRenderer {
         blackoutDuration = 0,
         onReady,
     }) {
-        //NOTE: if w/h are 0 the window is not resized and the clone is not scaled
-        this._w = w;
-        this._h = h;
 
+        // video size
+        this._sourceW = w;
+        this._sourceH = h;
+        // window size
+        //NOTE: if w/h are 0 the window is not resized and the wrapper is not scaled
+        this._w = 0;
+        this._h = 0;
         this._scalingMode = scalingMode;
         this._fadeInDuration = fadeInDuration;
         // Fade to and from black when switching videos, 0 to switch without it
@@ -74,6 +93,9 @@ export class VideoRenderer {
         // Black actors above the wrappers, see blackout()
         this._blackoutActors = [];
         this._blackoutTimeoutId = 0;
+        // Pending window size check and resizes, see _queueWindowSizeCheck()
+        this._sizeCheckId = 0;
+        this._sizeRetries = 0;
         this._pendingOnBlack = null; // Pending blackout callbacks
         this._backgroundCreated = false;
         this._promptShown = false;
@@ -86,6 +108,7 @@ export class VideoRenderer {
 
         this._window = null;
         this._windowActor = null;
+        this._updateRenderSize(window);
         this._attachWindow(window);
     }
 
@@ -152,17 +175,26 @@ export class VideoRenderer {
     }
 
     /**
-     * Moves the player window out of the window group onto the globa.stage,
+     * Moves the player window out of the window group onto the global.stage,
      * below everything, and hides it. Only its clones are visible
      */
     _attachWindow(window) {
         this._window = window;
         this._windowActor = window.get_compositor_private();
 
-        this._window.connectObject('unmanaged', () => {
-            this._resetWindowActor();
-            this._window = null;
-        }, this);
+        this._window.connectObject(
+            'unmanaged', () => {
+                this._resetWindowActor();
+                this._window = null;
+            },
+            //NOTE:
+            // mpv has this bug when it randomly resizes the window back to its
+            // initial size even with the auto-window-resize=no flag set when
+            // loading new file. Thats why we connect to this signal
+            // and force our established window size 
+            'size-changed', () => this._queueWindowSizeCheck(),
+            this
+        );
         this._windowActor?.connectObject('destroy', () => {
             this._windowActor = null;
         }, this);
@@ -209,6 +241,45 @@ export class VideoRenderer {
         return this._clones.length > 0;
     }
 
+    /**
+     * Scales the wrapper over its monitor, the clone inside stays unscaled.
+     * NOTE: The scale must not be on the clone, see applyScaling()
+     */
+    _scaleWrapper(data) {
+        applyScaling(
+            data.wrapper, this._scalingMode, 
+            this._w, this._h, data.monitor
+        );
+        data.clone.set_size(this._w, this._h);
+    }
+
+    /**
+     * Computes the size the window renders at (_w/_h) from the video size
+     * and the monitors, see getRenderSize()
+     */
+    _updateRenderSize(window = this._window) {
+        if (!(this._sourceW > 0 && this._sourceH > 0)) {
+            this._w = 0;
+            this._h = 0;
+            return;
+        }
+
+        const monitors = Main.layoutManager.monitors;
+        // The window is rendered with the scale factor of the monitor it is on
+        const windowMonitor = monitors[window?.get_monitor()] ?? Main.layoutManager.primaryMonitor;
+        const windowScale = windowMonitor.geometry_scale;
+
+        [this._w, this._h] = getRenderSize(
+            this._scalingMode,
+            this._sourceW, this._sourceH,
+            monitors.map(m => ({
+                width: m.width,
+                height: m.height,
+                pixelRatio: (m.geometry_scale) / windowScale,
+            }))
+        );
+    }
+
     _resizeWindow() {
         if (!this._window || this._window.unmanaging || !this._hasSize())
             return;
@@ -217,22 +288,49 @@ export class VideoRenderer {
     }
 
     /**
+     * Resizes the window back to the render size if something else resized it.
+     * Deferred, a resize requested while another one is still being applied
+     * gets overridden by it
+     */
+    _queueWindowSizeCheck() {
+        if (this._sizeCheckId) return;
+        this._sizeCheckId = GLib.idle_add(GLib.PRIORITY_DEFAULT_IDLE, () => {
+            this._sizeCheckId = 0;
+
+            if (!this._window || this._window.unmanaging || !this._hasSize())
+                return GLib.SOURCE_REMOVE;
+
+            const rect = this._window.get_frame_rect();
+            if (rect.width === this._w && rect.height === this._h) {
+                this._sizeRetries = 0;
+                return GLib.SOURCE_REMOVE;
+            }
+
+            // Stop if something keeps overriding the size, instead of fighting it forever
+            if (this._sizeRetries >= MAX_WINDOW_SIZE_RETRIES) {
+                logWarn(`VideoRenderer: window keeps losing its size ${this._w}x${this._h}, giving up`);
+                return GLib.SOURCE_REMOVE;
+            }
+
+            this._sizeRetries++;
+            this._resizeWindow();
+            return GLib.SOURCE_REMOVE;
+        });
+    }
+
+    /**
      * Updates the video size and resizes the window.
      * NOTE: Existing clones are rescaled
      */
     setSize(w, h) {
-        this._w = w;
-        this._h = h;
+        this._sourceW = w;
+        this._sourceH = h;
+        this._updateRenderSize();
+        // New target size, it gets its own retries
+        this._sizeRetries = 0;
         this._resizeWindow();
-        // Resizing existing clones
-        this._clones.forEach((data) => {
-            applyScaling(
-                data.actor,
-                this._scalingMode,
-                this._w, this._h,
-                data.monitorW, data.monitorH
-            );
-        });
+        // Rescaling existing wrappers
+        this._clones.forEach(data => this._scaleWrapper(data));
     }
 
     /**
@@ -250,11 +348,14 @@ export class VideoRenderer {
         if (!this._window || this._window.unmanaging || !this._windowActor)
             return;
 
-        this._resizeWindow();
-
         const monitors = Main.layoutManager.monitors;
         const monitor = monitors[monitorIndex];
         const isLastMonitor = monitorIndex === monitors.length - 1;
+
+        // Monitors might have changed since the last time
+        if (monitorIndex === 0)
+            this._updateRenderSize();
+        this._resizeWindow();
 
         // The dialog destroys all children of the background group before
         // recreating them, so our old wrappers are already gone at this point
@@ -264,25 +365,29 @@ export class VideoRenderer {
             this._blackoutActors = [];
         }
 
+        // The wrapper has the render size and is scaled and clipped to the monitor,
+        // the clone inside it stays unscaled (see applyScaling)
         const wrapper = new Clutter.Actor();
         const cloneActor = new Clutter.Clone({
             source: this._windowActor
         });
 
+        const data = {
+            wrapper,
+            clone: cloneActor,
+            monitor,
+        };
+
         // Destroying the wrapper destroys its clone as well, forget both
         wrapper.connectObject('destroy', () => {
             this._wrapperActors = this._wrapperActors.filter(a => a !== wrapper);
-            this._clones = this._clones.filter(c => c.actor !== cloneActor);
+            this._clones = this._clones.filter(c => c !== data);
         }, this);
 
         backgroundGroup.add_child(wrapper);
         backgroundGroup.set_child_above_sibling(wrapper, null);
 
-        this._clones.push({
-            actor: cloneActor,
-            monitorW: monitor.width,
-            monitorH: monitor.height,
-        });
+        this._clones.push(data);
 
         //NOTE: Only applying this effect when its needed
         if (this._blurRadius > 0 || this._promptChangeBlur) {
@@ -298,7 +403,7 @@ export class VideoRenderer {
         if (this._promptGrayscale) {
             wrapper.add_effect_with_name(
                 DESATURATE_EFFECT_NAME,
-                new Clutter.DesaturateEffect({ factor: this._grayscaleAnim?.get_value() ?? 0.0 })
+                new SmoothDesaturateEffect({ factor: this._grayscaleAnim?.get_value() ?? 0.0 })
             );
         }
 
@@ -309,24 +414,19 @@ export class VideoRenderer {
         wrapper.set_child_above_sibling(cloneActor, null);
         this._wrapperActors.push(wrapper);
 
-        wrapper.set_position(monitor.x, monitor.y);
-        wrapper.set_size(monitor.width, monitor.height);
-        wrapper.set_clip_to_allocation(true);
+        if (this._hasSize()) {
+            this._scaleWrapper(data);
+        } else {
+            // Unscaled over the monitor until the video size is known
+            wrapper.set_position(monitor.x, monitor.y);
+            wrapper.set_size(monitor.width, monitor.height);
+            wrapper.set_clip_to_allocation(true);
+            logWarn('VideoRenderer: video size unknown, skipping scaling');
+        }
 
         // Only creating if relevant
         if (this._blackoutAnim)
             this._addBlackoutActor(monitor, backgroundGroup);
-
-        if (this._hasSize()) {
-            applyScaling(
-                cloneActor,
-                this._scalingMode,
-                this._w, this._h,
-                monitor.width, monitor.height
-            );
-        } else {
-            logWarn('VideoRenderer: video size unknown, skipping scaling');
-        }
 
         if (!isLastMonitor) return;
 
@@ -443,6 +543,10 @@ export class VideoRenderer {
 
     destroy() {
         this._clearBlackoutTimeout();
+        if (this._sizeCheckId) {
+            GLib.source_remove(this._sizeCheckId);
+            this._sizeCheckId = 0;
+        }
         this._pendingOnBlack = null;
 
         // Animators first, they hold transitions on the actors
