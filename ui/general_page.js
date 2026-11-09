@@ -110,8 +110,13 @@ class LLSGeneralPage extends Adw.PreferencesPage {
     }
 
     _buildPerformanceGroup() {
-        const group = new Adw.PreferencesGroup({ title: 'Performance' });
+        const group = new Adw.PreferencesGroup({
+            title: 'Performance',
+            description: 'If you encounter stutters or artifacts, try disabling ' +
+                'hardware decoding before reporting an issue.',
+        });
         group.add(this._buildMpvProfileRow());
+        group.add(this._buildDisableHwdecRow());
 
         const changeFramerateRow = this._buildChangeFramerateRow();
         const fpsRow = this._buildFpsRow();
@@ -219,6 +224,15 @@ class LLSGeneralPage extends Adw.PreferencesPage {
             model: Gtk.StringList.new(['Quality', 'Balanced', 'Efficient']),
         });
         this._settings.bind(Keys.MPV_PROFILE, row, 'selected', Gio.SettingsBindFlags.DEFAULT);
+        return row;
+    }
+
+    _buildDisableHwdecRow() {
+        const row = new Adw.SwitchRow({
+            title: 'Disable hardware decoding',
+            subtitle: 'Causes higher CPU and memory usage',
+        });
+        this._settings.bind(Keys.DISABLE_HWDEC, row, 'active', Gio.SettingsBindFlags.DEFAULT);
         return row;
     }
 

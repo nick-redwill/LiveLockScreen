@@ -41,7 +41,7 @@ export class MpvPlayerProcess {
         useVideorate = false, framerate, imageDuration = 5,
         onSizeChange, onPauseChange, onFileChange, onNext, onPlaybackRestart,
         configPath,
-        profile = MpvProfile.QUALITY, customArgs = [],
+        profile = MpvProfile.QUALITY, disableHwdec = false, customArgs = [],
     }) {
         // Unique per player, inside the user's private runtime dir (/run/user/<uid>)
         this._socketPath = GLib.build_filenamev([
@@ -51,6 +51,7 @@ export class MpvPlayerProcess {
 
         this._configPath = configPath;
         this._profile = profile;
+        this._disableHwdec = disableHwdec;
         this._customArgs = customArgs;
 
         this._playlist = playlist;
@@ -109,6 +110,8 @@ export class MpvPlayerProcess {
             '--no-config',
             `--include=${this._configPath}`,
             `--profile=${this._resolveProfileName()}`,
+            // Overrides the hwdec value set by the profile
+            ...(this._disableHwdec ? ['--hwdec=no'] : []),
             ...this._filterCustomArgs(this._customArgs),
         ];
 

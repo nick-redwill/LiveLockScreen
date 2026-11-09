@@ -33,6 +33,7 @@ export const Keys = {
     PROMPT_BLUR_ANIM_DURATION: "prompt-blur-anim-duration",
 
     MPV_PROFILE: "mpv-profile",
+    DISABLE_HWDEC: "mpv-disable-hwdec",
     MPV_CUSTOM_ARGS: "mpv-custom-args",
 };
 

@@ -125,6 +125,10 @@
             <default>0</default>
             <summary>MPV profile from external/mpv.conf (0 - quality, 1 - balanced, 2 - efficient)</summary>
         </key>
+        <key name="mpv-disable-hwdec" type="b">
+            <default>false</default>
+            <summary>Disable hardware decoding (adds --hwdec=no on top of the profile)</summary>
+        </key>
         <key name="mpv-custom-args" type="as">
             <default>[]</default>
             <summary>Custom MPV arguments applied on top of the profile</summary>
