@@ -134,6 +134,7 @@ export default class LockscreenExtension extends Extension {
             framerate: this._settings.get_int(Keys.FRAMERATE),
             configPath: this.dir.get_child('external').get_child('mpv.conf').get_path(),
             profile: this._settings.get_int(Keys.MPV_PROFILE),
+            disableHwdec: this._settings.get_boolean(Keys.DISABLE_HWDEC),
             customArgs: this._settings.get_strv(Keys.MPV_CUSTOM_ARGS),
             onSizeChange: (w, h) => {
                 if (!this._renderer) return;
