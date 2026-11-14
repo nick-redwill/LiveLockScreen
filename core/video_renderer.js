@@ -174,17 +174,13 @@ export class VideoRenderer {
         ];
     }
 
-    /**
-     * Moves the player window out of the window group onto the global.stage,
-     * below everything, and hides it. Only its clones are visible
-     */
     _attachWindow(window) {
         this._window = window;
         this._windowActor = window.get_compositor_private();
 
         this._window.connectObject(
             'unmanaged', () => {
-                this._resetWindowActor();
+                this._window.disconnectObject(this);
                 this._window = null;
             },
             //NOTE:
@@ -209,28 +205,11 @@ export class VideoRenderer {
 
         if (!this._windowActor) return;
 
-        const parent = this._windowActor.get_parent();
-        if (parent) parent.remove_child(this._windowActor);
-
-        global.stage.add_child(this._windowActor);
-        global.stage.set_child_below_sibling(this._windowActor, null);
-        this._windowActor.opacity = 0;
-    }
-
-    _resetWindowActor() {
         //NOTE:
-        // This function doesnt destroy the window actor
-        // it just resets it to its initial state
-        // and also hides it for convinience
-        if (!this._windowActor) return;
-
-        this._windowActor.disconnectObject(this);
-        this._windowActor.hide();
-
-        const parent = this._windowActor.get_parent();
-        if (parent) parent.remove_child(this._windowActor);
-        global.window_group.add_child(this._windowActor);
-        this._windowActor = null;
+        // Previously the actor was moved into global.stage
+        // We dont do that anymore since it causes more trouble
+        // and has no meaningful benefit
+        this._windowActor.opacity = 0;
     }
 
     _hasSize() {
@@ -572,7 +551,8 @@ export class VideoRenderer {
             actor.destroy();
         });
         this._blackoutActors = [];
-        this._resetWindowActor();
+        this._windowActor?.disconnectObject(this);
+        this._windowActor = null;
 
         if (this._window) {
             this._window.disconnectObject(this);
